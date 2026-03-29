@@ -1,0 +1,5 @@
+job_name	command	model_id	task	prompt_mode	max_samples	max_frames_per_clip	max_new_tokens	output_name
+smolvlm_species_frame	eval-frame-hf-vlm	HuggingFaceTB/SmolVLM-256M-Instruct	species	plain	128	1	32	smolvlm_species_frame_val.jsonl
+smolvlm_behavior_frame	eval-frame-hf-vlm	HuggingFaceTB/SmolVLM-256M-Instruct	behavior	plain	128	1	32	smolvlm_behavior_frame_val.jsonl
+smolvlm_joint_clip	eval-clip-hf-vlm	HuggingFaceTB/SmolVLM-256M-Instruct	joint	structured	64	8	48	smolvlm_joint_clip_val.jsonl
+qwen_behavior_clip	eval-clip-hf-vlm	Qwen/Qwen2.5-VL-3B-Instruct	behavior	structured	64	8	48	qwen_behavior_clip_val.jsonl

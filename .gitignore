@@ -1,0 +1,15 @@
+.venv/
+.uvenv/
+.claude/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+data/
+artifacts/
+logs/
+wandb/
+.DS_Store

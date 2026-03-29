@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kabr-vlm"
+version = "0.1.0"
+description = "KABR video-language fine-tuning and VideoQA data conversion toolkit."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pillow>=10.0",
+  "pydantic>=2.6",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.3",
+]
+train = [
+  "accelerate>=0.30",
+  "datasets>=2.18",
+  "peft>=0.13",
+  "torch>=2.2",
+  "transformers>=4.40",
+]
+infer = [
+  "accelerate>=0.30",
+  "peft>=0.13",
+  "torch>=2.2",
+  "transformers>=4.40",
+]
+
+[project.scripts]
+kabr-vlm = "kabr_vlm.cli:app"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.uv]
+package = true
