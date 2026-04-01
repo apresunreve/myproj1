@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from kabr_vlm.config import load_config
-from kabr_vlm.training.qwen_species import train_qwen_species_model
+from kabr_vlm.training.qwen_tasks import train_qwen_task_model
 
 
 def count_jsonl_rows(path: Path) -> int:
@@ -54,16 +54,12 @@ def main() -> None:
         print("Dry run only. Dataset and config validation completed.")
         return
 
-    if config.data.task_mode != "animal_recognition":
-        raise ValueError(
-            "This first fine-tuning backend currently supports only task_mode=animal_recognition."
-        )
-    if config.model.output_format != "plain":
-        raise ValueError("This first fine-tuning backend currently supports output_format=plain.")
+    if config.data.task_mode not in {"animal_recognition", "action_recognition"}:
+        raise ValueError("This fine-tuning backend currently supports only species or behavior.")
     if config.training.method != "lora":
-        raise ValueError("This first fine-tuning backend currently supports method=lora.")
+        raise ValueError("This entrypoint currently supports method=lora. Use dedicated commands for other methods.")
 
-    metrics = train_qwen_species_model(config)
+    metrics = train_qwen_task_model(config)
     print(
         "Training complete. "
         f"train_samples={metrics['train_samples']} val_samples={metrics['val_samples']} "

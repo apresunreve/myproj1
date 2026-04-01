@@ -19,7 +19,10 @@ This scaffold focuses on:
 - frame-level VLM probing baselines on raw KABR frames
 - clip-level VLM baselines built from ordered KABR frame segments
 - aggregate scoring with JSON metrics and confusion CSV artifacts
-- a working Qwen2.5-VL LoRA fine-tuning path for clip-level species classification
+- plain-label and structured-output Qwen2.5-VL LoRA fine-tuning
+- frozen-feature linear and MLP baselines
+- KABR-only distillation into frozen-head students
+- paper-table aggregation from saved metrics artifacts
 
 It does not ship KABR data. Put raw data under `data/raw/` and generated artifacts under `data/processed/` or `artifacts/`.
 
@@ -96,6 +99,15 @@ Evaluate a saved adapter on clip-level KABR validation data:
   --output artifacts/qwen25vl3b_species_lora_val.jsonl
 ```
 
+For behavior fine-tuning, convert with `--task action_recognition --output-format plain`,
+use [qwen25vl3b_behavior_lora_full.yaml](/home/jhyan/myproj/configs/qwen25vl3b_behavior_lora_full.yaml),
+and evaluate with `--task behavior`.
+
+For structured-output LoRA, convert with `--output-format structured` and use:
+
+- [qwen25vl3b_species_lora_structured.yaml](/home/jhyan/myproj/configs/qwen25vl3b_species_lora_structured.yaml)
+- [qwen25vl3b_behavior_lora_structured.yaml](/home/jhyan/myproj/configs/qwen25vl3b_behavior_lora_structured.yaml)
+
 Run a frame-level VLM probing baseline on KABR validation data:
 
 ```bash
@@ -134,6 +146,68 @@ Score a prediction file:
   --metrics-output artifacts/smolvlm_joint_clip_val.metrics.json \
   --confusion-output artifacts/smolvlm_joint_clip_val.confusion.csv
 ```
+
+## Paper Workflow
+
+The repo now supports the full experiment ladder for the workshop paper:
+
+- zero-shot clip baselines
+- frozen-feature classifiers
+- plain-label LoRA
+- structured-output LoRA
+- distillation from a fine-tuned teacher
+
+Convert structured supervision for behavior:
+
+```bash
+.uvenv/bin/kabr-vlm convert-kabr-split \
+  --annotation ../KABR_files/annotation/train.csv \
+  --image-root ../KABR_files/dataset/image \
+  --classes ../KABR_files/annotation/classes.json \
+  --task action_recognition \
+  --max-frames-per-clip 8 \
+  --output-format structured \
+  --output data/processed/kabr_behavior_train_structured.jsonl
+```
+
+Run a frozen-feature baseline:
+
+```bash
+.uvenv/bin/kabr-vlm train-frozen-features \
+  --config configs/qwen25vl3b_behavior_frozen_mlp.yaml
+
+.uvenv/bin/kabr-vlm eval-frozen-features \
+  --config configs/qwen25vl3b_behavior_frozen_mlp.yaml \
+  --checkpoint-path artifacts/paper/behavior/frozen/qwen25vl3b/mlp/classifier.pt \
+  --output artifacts/paper/behavior/frozen/qwen25vl3b/mlp/predictions.jsonl
+```
+
+Run KABR-only distillation:
+
+```bash
+.uvenv/bin/kabr-vlm train-distill \
+  --config configs/qwen25vl3b_behavior_distill_mlp.yaml
+
+.uvenv/bin/kabr-vlm eval-distill \
+  --config configs/qwen25vl3b_behavior_distill_mlp.yaml \
+  --checkpoint-path artifacts/paper/behavior/distill/qwen25vl3b/mlp/classifier.pt \
+  --output artifacts/paper/behavior/distill/qwen25vl3b/mlp/predictions.jsonl
+```
+
+Aggregate paper tables from saved runs:
+
+```bash
+.uvenv/bin/kabr-vlm aggregate-paper-results \
+  --manifest configs/paper_runs.yaml \
+  --output-dir artifacts/paper_tables
+```
+
+This writes:
+
+- `artifacts/paper_tables/main_table.csv`
+- `artifacts/paper_tables/main_table.md`
+- `artifacts/paper_tables/per_class_f1.csv`
+- `artifacts/paper_tables/summary.json`
 
 ## Slurm Enumeration
 
@@ -209,7 +283,7 @@ If you use the released KABR split files under `../KABR_files/annotation/`, use 
 The converter supports:
 
 - `structured`: code-like `recognize(...)` targets
-- `plain`: plain label targets for the first species fine-tuning path
+- `plain`: plain label targets for LoRA, frozen-feature, and distillation baselines
 
 Structured example target:
 
@@ -226,7 +300,7 @@ giraffe
 
 ## Next Steps
 
-- compare frame probing against clip baselines
-- run cluster sweeps with the Slurm matrix under `slurm/kabr_eval_jobs.tsv`
-- extend the first LoRA species path to behavior recognition
-- compare plain-label and structured-output fine-tuning
+- run the full frozen-feature and distillation configs on behavior and species
+- append new metrics artifacts to `configs/paper_runs.yaml`
+- compare plain-label and structured-output LoRA on the full behavior split
+- add runtime and throughput columns to the paper tables

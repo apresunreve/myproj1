@@ -7,13 +7,41 @@ from PIL import Image
 
 from kabr_vlm.config import AppConfig
 from kabr_vlm.metrics import score_prediction_records, write_confusion_csv, write_metrics
+from kabr_vlm.vlm_baselines import BEHAVIOR_LABELS, SPECIES_LABELS, parse_prediction
 
 
-SPECIES_PROMPT = (
-    "You are classifying an ordered set of wildlife drone frames from the KABR dataset. "
-    "Choose exactly one species label from: giraffe, plains zebra, grevys zebra. "
-    "Reply with exactly one label and no extra text."
-)
+TASK_TO_LABELS = {
+    "animal_recognition": SPECIES_LABELS,
+    "action_recognition": BEHAVIOR_LABELS,
+}
+
+TASK_TO_LABEL_KEY = {
+    "animal_recognition": "species",
+    "action_recognition": "behavior",
+}
+
+TASK_TO_EVAL_NAME = {
+    "animal_recognition": "species",
+    "action_recognition": "behavior",
+}
+
+
+def task_prompt(task_mode: str) -> str:
+    if task_mode == "animal_recognition":
+        options = ", ".join(SPECIES_LABELS)
+        return (
+            "You are classifying an ordered set of wildlife drone frames from the KABR dataset. "
+            f"Choose exactly one species label from: {options}. "
+            "Reply with exactly one label and no extra text."
+        )
+    if task_mode == "action_recognition":
+        options = ", ".join(BEHAVIOR_LABELS)
+        return (
+            "You are classifying an ordered set of wildlife drone frames from the KABR dataset. "
+            f"Choose exactly one behavior label from: {options}. "
+            "Reply with exactly one label and no extra text."
+        )
+    raise ValueError(f"Unsupported task_mode: {task_mode}")
 
 
 def load_jsonl_examples(path: Path, max_examples: int | None = None) -> list[dict[str, Any]]:
@@ -39,10 +67,10 @@ def choose_precision_flags(config: AppConfig) -> tuple[bool, bool]:
     return False, False
 
 
-def build_species_messages(image_paths: list[str], answer: str | None = None) -> list[dict[str, Any]]:
+def build_task_messages(prompt: str, image_paths: list[str], answer: str | None = None) -> list[dict[str, Any]]:
     user_content: list[dict[str, Any]] = [
         *[{"type": "image", "image": path} for path in image_paths],
-        {"type": "text", "text": SPECIES_PROMPT},
+        {"type": "text", "text": prompt},
     ]
     messages: list[dict[str, Any]] = [{"role": "user", "content": user_content}]
     if answer is not None:
@@ -51,29 +79,42 @@ def build_species_messages(image_paths: list[str], answer: str | None = None) ->
 
 
 @dataclass
-class QwenSpeciesExample:
+class QwenTaskExample:
     example_id: str
     image_paths: list[str]
+    prompt: str
     answer: str
+    label: str
+    task_mode: str
     metadata: dict[str, Any]
 
 
-class QwenSpeciesDataset:
+class QwenTaskDataset:
     def __init__(self, examples: list[dict[str, Any]]) -> None:
-        self._examples = [
-            QwenSpeciesExample(
-                example_id=row["id"],
-                image_paths=list(row["image_paths"]),
-                answer=row["answer"].strip(),
-                metadata=dict(row.get("metadata", {})),
+        self._examples = []
+        for row in examples:
+            task_mode = row["task"]
+            parsed = parse_prediction(TASK_TO_EVAL_NAME[task_mode], row["answer"].strip())
+            label_key = TASK_TO_LABEL_KEY[task_mode]
+            label = parsed.get(label_key)
+            if label is None:
+                raise ValueError(f"Could not parse label from answer for example {row['id']}: {row['answer']}")
+            self._examples.append(
+                QwenTaskExample(
+                    example_id=row["id"],
+                    image_paths=list(row["image_paths"]),
+                    prompt=row["prompt"].strip(),
+                    answer=row["answer"].strip(),
+                    label=label,
+                    task_mode=task_mode,
+                    metadata=dict(row.get("metadata", {})),
+                )
             )
-            for row in examples
-        ]
 
     def __len__(self) -> int:
         return len(self._examples)
 
-    def __getitem__(self, index: int) -> QwenSpeciesExample:
+    def __getitem__(self, index: int) -> QwenTaskExample:
         return self._examples[index]
 
 
@@ -81,17 +122,17 @@ def _open_images(image_paths: list[str]) -> list[Image.Image]:
     return [Image.open(path).convert("RGB") for path in image_paths]
 
 
-class QwenSpeciesCollator:
+class QwenTaskCollator:
     def __init__(self, processor, max_seq_length: int) -> None:
         self.processor = processor
         self.max_seq_length = max_seq_length
 
-    def __call__(self, features: list[QwenSpeciesExample]) -> dict[str, Any]:
+    def __call__(self, features: list[QwenTaskExample]) -> dict[str, Any]:
         batch_images = [_open_images(feature.image_paths) for feature in features]
         try:
             full_texts = [
                 self.processor.apply_chat_template(
-                    build_species_messages(feature.image_paths, answer=feature.answer),
+                    build_task_messages(feature.prompt, feature.image_paths, answer=feature.answer),
                     tokenize=False,
                     add_generation_prompt=False,
                 )
@@ -99,7 +140,7 @@ class QwenSpeciesCollator:
             ]
             prompt_texts = [
                 self.processor.apply_chat_template(
-                    build_species_messages(feature.image_paths),
+                    build_task_messages(feature.prompt, feature.image_paths),
                     tokenize=False,
                     add_generation_prompt=True,
                 )
@@ -184,7 +225,7 @@ def create_lora_model(config: AppConfig):
     return model, processor
 
 
-def train_qwen_species_model(config: AppConfig) -> dict[str, Any]:
+def train_qwen_task_model(config: AppConfig) -> dict[str, Any]:
     try:
         from transformers import Trainer, TrainingArguments
     except ImportError as exc:
@@ -196,9 +237,9 @@ def train_qwen_species_model(config: AppConfig) -> dict[str, Any]:
     val_examples = load_jsonl_examples(config.data.val_file, config.data.max_val_samples)
     model, processor = create_lora_model(config)
 
-    train_dataset = QwenSpeciesDataset(train_examples)
-    val_dataset = QwenSpeciesDataset(val_examples)
-    collator = QwenSpeciesCollator(processor=processor, max_seq_length=config.training.max_seq_length)
+    train_dataset = QwenTaskDataset(train_examples)
+    val_dataset = QwenTaskDataset(val_examples)
+    collator = QwenTaskCollator(processor=processor, max_seq_length=config.training.max_seq_length)
     bf16, fp16 = choose_precision_flags(config)
 
     args = TrainingArguments(
@@ -237,6 +278,10 @@ def train_qwen_species_model(config: AppConfig) -> dict[str, Any]:
         "train_loss": result.metrics.get("train_loss"),
         "train_samples": len(train_dataset),
         "val_samples": len(val_dataset),
+        "task_mode": config.data.task_mode,
+        "output_format": config.model.output_format,
+        "trainable_params": sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad),
+        "total_params": sum(parameter.numel() for parameter in model.parameters()),
     }
     with (config.training.output_dir / "training_metrics.json").open("w", encoding="utf-8") as handle:
         json.dump(metrics, handle, indent=2, ensure_ascii=True)
@@ -244,36 +289,38 @@ def train_qwen_species_model(config: AppConfig) -> dict[str, Any]:
     return metrics
 
 
-def evaluate_qwen_species_adapter(
+def evaluate_qwen_adapter(
     annotation_path: str | Path,
     image_root: str | Path,
     classes_path: str | Path,
     model_id: str,
     adapter_path: str | Path,
+    task: str,
     output_path: str | Path,
     max_samples: int | None = None,
     seed: int = 42,
     max_new_tokens: int = 8,
+    max_frames_per_clip: int = 8,
+    prompt_mode: str = "label",
 ) -> dict[str, Any]:
-    from kabr_vlm.data.kabr_frames import read_kabr_frame_annotations
+    from kabr_vlm.data.kabr_frames import group_frame_records_into_clips, read_kabr_frame_annotations
     from kabr_vlm.metrics import load_prediction_records
     from kabr_vlm.vlm_baselines import load_hf_qwen_generator
 
     rows = read_kabr_frame_annotations(annotation_path, image_root, classes_path)
     generator = load_hf_qwen_generator(model_id=model_id, adapter_path=adapter_path)
-    from kabr_vlm.data.kabr_frames import group_frame_records_into_clips
 
     summary = evaluate_clip_records_with_generator(
         rows=rows,
         generator=generator,
         model_id=model_id,
-        task="species",
+        task=task,
         max_samples=max_samples or len(group_frame_records_into_clips(rows)),
         seed=seed,
         max_new_tokens=max_new_tokens,
-        max_frames_per_clip=8,
+        max_frames_per_clip=max_frames_per_clip,
         output_path=output_path,
-        prompt_mode="label",
+        prompt_mode=prompt_mode,
     )
     metrics_rows = load_prediction_records(output_path)
     metrics = score_prediction_records(metrics_rows)

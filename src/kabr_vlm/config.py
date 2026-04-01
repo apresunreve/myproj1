@@ -18,6 +18,7 @@ class DataConfig(BaseModel):
 class ModelConfig(BaseModel):
     base_model_id: str = Field(alias="name")
     processor_id: str | None = None
+    adapter_path: Path | None = None
     max_frames: int = 32
     precision: str = "bf16"
     prompt_mode: str = "label"
@@ -54,6 +55,15 @@ class TrainingConfig(BaseModel):
     logging_steps: int = 10
     seed: int = 42
     dry_run: bool = True
+    feature_batch_size: int = 2
+    classifier_hidden_dim: int = 256
+    classifier_dropout: float = 0.1
+    classifier_epochs: int = 25
+    classifier_learning_rate: float = 1e-3
+    classifier_weight_decay: float = 1e-4
+    classifier_type: str = "linear"
+    distill_temperature: float = 2.0
+    distill_alpha: float = 0.5
 
 
 class AppConfig(BaseModel):

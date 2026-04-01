@@ -15,7 +15,9 @@ from kabr_vlm.metrics import (
     write_confusion_csv,
     write_metrics,
 )
-from kabr_vlm.training.qwen_species import evaluate_qwen_species_adapter
+from kabr_vlm.reporting import aggregate_paper_results
+from kabr_vlm.config import load_config
+from kabr_vlm.training.qwen_tasks import evaluate_qwen_adapter
 from kabr_vlm.vlm_baselines import evaluate_clip_records, evaluate_hf_vlm_on_kabr
 
 app = typer.Typer(add_completion=False, help="Utilities for KABR VLM workflows.")
@@ -128,24 +130,27 @@ def eval_finetuned_hf_vlm(
     classes: Path = typer.Option(..., exists=True, readable=True, help="KABR classes.json path."),
     model_id: str = typer.Option(..., help="Base Hugging Face VLM model id."),
     adapter_path: Path = typer.Option(..., exists=True, help="LoRA adapter directory."),
-    task: str = typer.Option("species", help="Currently only species is supported."),
+    task: str = typer.Option("species", help="Currently supports species or behavior."),
+    prompt_mode: str = typer.Option("label", help="One of: label, structured."),
     max_samples: int | None = typer.Option(None, min=1, help="Optional number of clips to evaluate."),
     seed: int = typer.Option(42, help="Random seed for clip sampling."),
     max_new_tokens: int = typer.Option(8, min=1, help="Generation length."),
     output: Path = typer.Option(..., help="Prediction JSONL output path."),
 ) -> None:
-    if task != "species":
-        raise typer.BadParameter("This first adapter-backed evaluator currently supports only task=species.")
-    summary = evaluate_qwen_species_adapter(
+    if task not in {"species", "behavior"}:
+        raise typer.BadParameter("This adapter-backed evaluator currently supports only task=species or behavior.")
+    summary = evaluate_qwen_adapter(
         annotation_path=annotation,
         image_root=image_root,
         classes_path=classes,
         model_id=model_id,
         adapter_path=adapter_path,
+        task=task,
         output_path=output,
         max_samples=max_samples,
         seed=seed,
         max_new_tokens=max_new_tokens,
+        prompt_mode=prompt_mode,
     )
     typer.echo(
         "evaluated="
@@ -169,6 +174,79 @@ def score_predictions(
     typer.echo(
         f"evaluated={metrics['evaluated']} parsed={metrics['parsed']} "
         f"accuracy={metrics['accuracy']:.4f} macro_f1={metrics['macro_f1']:.4f}"
+    )
+
+
+@app.command("train-frozen-features")
+def train_frozen_features(
+    config_path: Path = typer.Option(..., "--config", exists=True, readable=True, help="YAML config."),
+) -> None:
+    from kabr_vlm.training.frozen_features import train_frozen_feature_model
+
+    config = load_config(config_path)
+    metrics = train_frozen_feature_model(config)
+    typer.echo(
+        f"train_samples={metrics['train_samples']} val_samples={metrics['val_samples']} "
+        f"val_accuracy={metrics.get('val_accuracy', 0.0):.4f}"
+    )
+
+
+@app.command("eval-frozen-features")
+def eval_frozen_features(
+    config_path: Path = typer.Option(..., "--config", exists=True, readable=True, help="YAML config."),
+    checkpoint_path: Path = typer.Option(..., exists=True, readable=True, help="Frozen classifier checkpoint."),
+    output: Path = typer.Option(..., help="Prediction JSONL output path."),
+    max_samples: int | None = typer.Option(None, min=1, help="Optional number of examples."),
+) -> None:
+    from kabr_vlm.training.frozen_features import evaluate_frozen_feature_model
+
+    config = load_config(config_path)
+    summary = evaluate_frozen_feature_model(config, checkpoint_path=checkpoint_path, output_path=output, max_samples=max_samples)
+    typer.echo(
+        f"evaluated={summary['evaluated']} parsed={summary['parsed']} "
+        f"accuracy={summary['accuracy']:.4f} macro_f1={summary['macro_f1']:.4f}"
+    )
+
+
+@app.command("train-distill")
+def train_distill(
+    config_path: Path = typer.Option(..., "--config", exists=True, readable=True, help="YAML config."),
+) -> None:
+    from kabr_vlm.training.distill import train_distilled_feature_model
+
+    config = load_config(config_path)
+    metrics = train_distilled_feature_model(config)
+    typer.echo(
+        f"train_samples={metrics['train_samples']} val_samples={metrics['val_samples']} "
+        f"val_accuracy={metrics.get('val_accuracy', 0.0):.4f}"
+    )
+
+
+@app.command("eval-distill")
+def eval_distill(
+    config_path: Path = typer.Option(..., "--config", exists=True, readable=True, help="YAML config."),
+    checkpoint_path: Path = typer.Option(..., exists=True, readable=True, help="Distilled classifier checkpoint."),
+    output: Path = typer.Option(..., help="Prediction JSONL output path."),
+    max_samples: int | None = typer.Option(None, min=1, help="Optional number of examples."),
+) -> None:
+    from kabr_vlm.training.distill import evaluate_distilled_feature_model
+
+    config = load_config(config_path)
+    summary = evaluate_distilled_feature_model(config, checkpoint_path=checkpoint_path, output_path=output, max_samples=max_samples)
+    typer.echo(
+        f"evaluated={summary['evaluated']} parsed={summary['parsed']} "
+        f"accuracy={summary['accuracy']:.4f} macro_f1={summary['macro_f1']:.4f}"
+    )
+
+
+@app.command("aggregate-paper-results")
+def aggregate_results(
+    manifest: Path = typer.Option(..., exists=True, readable=True, help="YAML manifest listing experiment runs."),
+    output_dir: Path = typer.Option(..., help="Output directory for paper tables."),
+) -> None:
+    outputs = aggregate_paper_results(manifest, output_dir)
+    typer.echo(
+        f"wrote main_table={outputs['main_table_csv']} per_class={outputs['per_class_csv']} summary={outputs['summary_json']}"
     )
 
 
