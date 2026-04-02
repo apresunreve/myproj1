@@ -205,6 +205,16 @@ def _write_feature_tensor(path: Path, batch: FeatureBatch, task_mode: str) -> No
     )
 
 
+def _load_feature_tensor(path: Path) -> tuple[FeatureBatch, str]:
+    payload = torch.load(path, map_location="cpu")
+    batch = FeatureBatch(
+        ids=list(payload["ids"]),
+        labels=list(payload["labels"]),
+        features=payload["features"],
+    )
+    return batch, str(payload["task_mode"])
+
+
 def train_frozen_feature_model(config: AppConfig) -> dict[str, Any]:
     train_examples = load_jsonl_examples(config.data.train_file, config.data.max_train_samples)
     val_examples = load_jsonl_examples(config.data.val_file, config.data.max_val_samples)
@@ -292,8 +302,20 @@ def evaluate_frozen_feature_model(
 ) -> dict[str, Any]:
     examples = load_jsonl_examples(config.data.val_file, max_samples)
     dataset = QwenTaskDataset(examples)
-    extractor = FrozenFeatureExtractor(config)
-    batch = extractor.extract([dataset[index] for index in range(len(dataset))], config.training.feature_batch_size)
+    cache_path = config.training.output_dir / "features" / "val.pt"
+    if max_samples is None and cache_path.exists():
+        batch, cached_task_mode = _load_feature_tensor(cache_path)
+        if cached_task_mode != config.data.task_mode or len(batch.ids) != len(dataset):
+            extractor = FrozenFeatureExtractor(config)
+            batch = extractor.extract([dataset[index] for index in range(len(dataset))], config.training.feature_batch_size)
+        else:
+            expected_ids = [example.example_id for example in dataset._examples]
+            if batch.ids != expected_ids:
+                extractor = FrozenFeatureExtractor(config)
+                batch = extractor.extract([dataset[index] for index in range(len(dataset))], config.training.feature_batch_size)
+    else:
+        extractor = FrozenFeatureExtractor(config)
+        batch = extractor.extract([dataset[index] for index in range(len(dataset))], config.training.feature_batch_size)
     classifier, payload = _load_classifier_checkpoint(Path(checkpoint_path))
     with torch.inference_mode():
         logits = classifier(batch.features)

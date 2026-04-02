@@ -59,3 +59,39 @@ runs:
     metrics_path: artifacts/runs/qwen25vl3b_species_lora_full/species_val_predictions.metrics.json
     training_metrics_path: artifacts/runs/qwen25vl3b_species_lora_full/checkpoint/training_metrics.json
     checkpoint_path: artifacts/runs/qwen25vl3b_species_lora_full/checkpoint
+  - name: species_frozen_qwen25vl3b_mlp
+    task: species
+    family: vlm
+    method: frozen-feature
+    model: Qwen/Qwen2.5-VL-3B-Instruct
+    output_format: plain
+    metrics_path: artifacts/paper/species/frozen/qwen25vl3b/mlp/predictions.metrics.json
+    training_metrics_path: artifacts/paper/species/frozen/qwen25vl3b/mlp/training_metrics.json
+    checkpoint_path: artifacts/paper/species/frozen/qwen25vl3b/mlp/classifier.pt
+  - name: behavior_frozen_qwen25vl3b_mlp
+    task: behavior
+    family: vlm
+    method: frozen-feature
+    model: Qwen/Qwen2.5-VL-3B-Instruct
+    output_format: plain
+    metrics_path: artifacts/paper/behavior/frozen/qwen25vl3b/mlp/predictions.metrics.json
+    training_metrics_path: artifacts/paper/behavior/frozen/qwen25vl3b/mlp/training_metrics.json
+    checkpoint_path: artifacts/paper/behavior/frozen/qwen25vl3b/mlp/classifier.pt
+  - name: species_distill_qwen25vl3b_mlp
+    task: species
+    family: vlm
+    method: distill
+    model: Qwen/Qwen2.5-VL-3B-Instruct
+    output_format: plain
+    metrics_path: artifacts/paper/species/distill/qwen25vl3b/mlp/predictions.metrics.json
+    training_metrics_path: artifacts/paper/species/distill/qwen25vl3b/mlp/training_metrics.json
+    checkpoint_path: artifacts/paper/species/distill/qwen25vl3b/mlp/classifier.pt
+  - name: behavior_distill_qwen25vl3b_mlp
+    task: behavior
+    family: vlm
+    method: distill
+    model: Qwen/Qwen2.5-VL-3B-Instruct
+    output_format: plain
+    metrics_path: artifacts/paper/behavior/distill/qwen25vl3b/mlp/predictions.metrics.json
+    training_metrics_path: artifacts/paper/behavior/distill/qwen25vl3b/mlp/training_metrics.json
+    checkpoint_path: artifacts/paper/behavior/distill/qwen25vl3b/mlp/classifier.pt
