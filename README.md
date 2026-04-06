@@ -19,7 +19,7 @@ This scaffold focuses on:
 - frame-level VLM probing baselines on raw KABR frames
 - clip-level VLM baselines built from ordered KABR frame segments
 - aggregate scoring with JSON metrics and confusion CSV artifacts
-- plain-label and structured-output Qwen2.5-VL LoRA fine-tuning
+- plain-label and structured-output Qwen2.5-VL and Gemma 3 LoRA fine-tuning
 - frozen-feature linear and MLP baselines
 - KABR-only distillation into frozen-head students
 - paper-table aggregation from saved metrics artifacts
@@ -78,7 +78,7 @@ Repeat for validation:
   --output data/processed/kabr_species_val.jsonl
 ```
 
-Run the Qwen2.5-VL LoRA fine-tuning path:
+Run the LoRA fine-tuning path:
 
 ```bash
 ~/.local/bin/uv pip install --python .uvenv/bin/python -e ".[train]"
@@ -102,6 +102,17 @@ Evaluate a saved adapter on clip-level KABR validation data:
 For behavior fine-tuning, convert with `--task action_recognition --output-format plain`,
 use [qwen25vl3b_behavior_lora_full.yaml](/home/jhyan/myproj/configs/qwen25vl3b_behavior_lora_full.yaml),
 and evaluate with `--task behavior`.
+
+For gated models such as `google/gemma-3-4b-it`, export auth first so both model
+and processor loads can resolve:
+
+```bash
+export HF_TOKEN=...
+export HUGGINGFACE_HUB_TOKEN="$HF_TOKEN"
+```
+
+Then you can train and evaluate Gemma through the same interface using
+[gemma3_4b_behavior_lora_full.yaml](/home/jhyan/myproj/configs/gemma3_4b_behavior_lora_full.yaml).
 
 For structured-output LoRA, convert with `--output-format structured` and use:
 

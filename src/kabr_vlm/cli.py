@@ -17,7 +17,7 @@ from kabr_vlm.metrics import (
 )
 from kabr_vlm.reporting import aggregate_paper_results
 from kabr_vlm.config import load_config
-from kabr_vlm.training.qwen_tasks import evaluate_qwen_adapter
+from kabr_vlm.training.qwen_tasks import evaluate_hf_adapter
 from kabr_vlm.vlm_baselines import evaluate_clip_records, evaluate_hf_vlm_on_kabr
 
 app = typer.Typer(add_completion=False, help="Utilities for KABR VLM workflows.")
@@ -68,6 +68,7 @@ def eval_frame_hf_vlm(
     max_frames_per_clip: int = typer.Option(1, min=1, help="Ignored for frame evaluation; accepted for matrix compatibility."),
     seed: int = typer.Option(42, help="Random seed for row sampling."),
     max_new_tokens: int = typer.Option(64, min=1, help="Generation length."),
+    resume: bool = typer.Option(False, help="Resume from an existing partial JSONL output."),
     output: Path = typer.Option(..., help="Prediction JSONL output path."),
 ) -> None:
     _ = max_frames_per_clip
@@ -82,6 +83,7 @@ def eval_frame_hf_vlm(
         max_new_tokens=max_new_tokens,
         output_path=output,
         prompt_mode=prompt_mode,
+        resume=resume,
     )
     typer.echo(
         "evaluated="
@@ -102,6 +104,7 @@ def eval_clip_hf_vlm(
     max_frames_per_clip: int = typer.Option(8, min=1, help="Ordered frames sampled per clip."),
     seed: int = typer.Option(42, help="Random seed for clip sampling."),
     max_new_tokens: int = typer.Option(64, min=1, help="Generation length."),
+    resume: bool = typer.Option(False, help="Resume from an existing partial JSONL output."),
     output: Path = typer.Option(..., help="Prediction JSONL output path."),
 ) -> None:
     rows = read_kabr_frame_annotations(annotation, image_root, classes)
@@ -115,6 +118,7 @@ def eval_clip_hf_vlm(
         max_frames_per_clip=max_frames_per_clip,
         output_path=output,
         prompt_mode=prompt_mode,
+        resume=resume,
     )
     typer.echo(
         "evaluated="
@@ -139,7 +143,7 @@ def eval_finetuned_hf_vlm(
 ) -> None:
     if task not in {"species", "behavior"}:
         raise typer.BadParameter("This adapter-backed evaluator currently supports only task=species or behavior.")
-    summary = evaluate_qwen_adapter(
+    summary = evaluate_hf_adapter(
         annotation_path=annotation,
         image_root=image_root,
         classes_path=classes,

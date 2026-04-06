@@ -1,0 +1,44 @@
+project_name: kabr-vlm-behavior-plain-4frames
+seed: 42
+
+data:
+  train_file: data/processed/kabr_behavior_train_4frames.jsonl
+  val_file: data/processed/kabr_behavior_val_4frames.jsonl
+  video_root:
+  task_mode: action_recognition
+  input_type: clip
+  max_frames_per_clip: 4
+  max_train_samples:
+  max_val_samples:
+
+model:
+  name: Qwen/Qwen2.5-VL-3B-Instruct
+  processor_id:
+  adapter_path:
+  max_frames: 4
+  precision: bf16
+  prompt_mode: label
+  output_format: plain
+
+training:
+  output_dir: artifacts/paper/behavior/lora/qwen25vl3b/plain_4frames/checkpoint
+  method: lora
+  epochs: 1
+  batch_size: 1
+  eval_batch_size: 1
+  learning_rate: 2.0e-4
+  gradient_accumulation_steps: 8
+  weight_decay: 0.0
+  max_seq_length: 2048
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  gradient_checkpointing: true
+  bf16: true
+  fp16: false
+  save_strategy: epoch
+  eval_strategy: epoch
+  save_total_limit: 2
+  logging_steps: 10
+  seed: 42
+  dry_run: false

@@ -66,7 +66,7 @@ run_model() {
   mark_status "$slug" "starting" "$model_id"
   rm -f "$smoke_file" "$pred_file" "$confusion_file"
 
-  {
+  if {
     echo "[$(timestamp)] model_id=$model_id"
     echo "[$(timestamp)] smoke test"
     "$PYTHON_BIN" -m kabr_vlm.cli eval-clip-hf-vlm \
@@ -99,11 +99,14 @@ run_model() {
       --predictions "$pred_file" \
       --metrics-output "$metrics_file" \
       --confusion-output "$confusion_file"
-  } >> "$model_log" 2>&1
+  } >> "$model_log" 2>&1; then
+    if [[ -f "$metrics_file" ]]; then
+      mark_status "$slug" "completed" "$metrics_file"
+      return 0
+    fi
 
-  if [[ -f "$metrics_file" ]]; then
-    mark_status "$slug" "completed" "$metrics_file"
-    return 0
+    mark_status "$slug" "failed" "$model_log"
+    return 1
   fi
 
   mark_status "$slug" "failed" "$model_log"

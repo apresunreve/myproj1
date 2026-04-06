@@ -24,6 +24,7 @@ class PaperRun(BaseModel):
 
 class PaperManifest(BaseModel):
     runs: list[PaperRun] = Field(default_factory=list)
+    task_filter: str | None = None
 
 
 def load_paper_manifest(path: str | Path) -> PaperManifest:
@@ -47,6 +48,62 @@ def _load_json(path: Path | None) -> dict[str, Any]:
         return json.load(handle)
 
 
+def _write_markdown_table(path: Path, rows: list[dict[str, Any]]) -> None:
+    with path.open("w", encoding="utf-8") as handle:
+        handle.write("| run_name | task | family | method | model | accuracy | macro_f1 | parse_rate | runtime_hours | trainable_params | checkpoint_size_mb |\n")
+        handle.write("| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+        for row in rows:
+            runtime_hours = "" if row["runtime_hours"] is None else f"{row['runtime_hours']:.2f}"
+            trainable_params = "" if row["trainable_params"] is None else row["trainable_params"]
+            checkpoint_size_mb = "" if row["checkpoint_size_mb"] is None else f"{row['checkpoint_size_mb']:.2f}"
+            handle.write(
+                f"| {row['run_name']} | {row['task']} | {row['family']} | {row['method']} | {row['model']} | "
+                f"{row['accuracy']:.4f} | {row['macro_f1']:.4f} | {row['parse_rate']:.4f} | "
+                f"{runtime_hours} | {trainable_params} | {checkpoint_size_mb} |\n"
+            )
+
+
+def _write_method_summary(path: Path, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        path.write_text("", encoding="utf-8")
+        return
+
+    best_zero_shot = max((row for row in rows if row["method"] == "zero-shot"), key=lambda row: row["macro_f1"], default=None)
+    best_x3d = max((row for row in rows if row["family"] == "x3d"), key=lambda row: row["macro_f1"], default=None)
+    best_lora = max((row for row in rows if row["method"] == "lora"), key=lambda row: row["macro_f1"], default=None)
+    best_non_lora = max(
+        (row for row in rows if row["method"] not in {"zero-shot", "lora"} and row["family"] == "vlm"),
+        key=lambda row: row["macro_f1"],
+        default=None,
+    )
+    best_overall = max(rows, key=lambda row: row["macro_f1"], default=None)
+
+    lines = ["# Method Comparison Summary", ""]
+    if best_overall is not None:
+        lines.append(
+            f"Best overall behavior result: `{best_overall['run_name']}` with "
+            f"accuracy `{best_overall['accuracy']:.4f}` and macro F1 `{best_overall['macro_f1']:.4f}`."
+        )
+    if best_zero_shot is not None and best_lora is not None:
+        lines.append(
+            f"Best zero-shot to best LoRA gain: `{best_zero_shot['run_name']}` "
+            f"macro F1 `{best_zero_shot['macro_f1']:.4f}` -> `{best_lora['run_name']}` "
+            f"macro F1 `{best_lora['macro_f1']:.4f}`."
+        )
+    if best_x3d is not None and best_lora is not None:
+        lines.append(
+            f"Best X3D vs best LoRA: `{best_x3d['run_name']}` macro F1 `{best_x3d['macro_f1']:.4f}` "
+            f"vs `{best_lora['run_name']}` macro F1 `{best_lora['macro_f1']:.4f}`."
+        )
+    if best_non_lora is not None:
+        lines.append(
+            f"Best non-LoRA post-training method: `{best_non_lora['run_name']}` "
+            f"with macro F1 `{best_non_lora['macro_f1']:.4f}`."
+        )
+    lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def aggregate_paper_results(manifest_path: str | Path, output_dir: str | Path) -> dict[str, Path]:
     manifest = load_paper_manifest(manifest_path)
     destination = Path(output_dir)
@@ -56,7 +113,11 @@ def aggregate_paper_results(manifest_path: str | Path, output_dir: str | Path) -
     per_class_rows = []
     summary_rows = []
 
-    for run in manifest.runs:
+    filtered_runs = manifest.runs
+    if manifest.task_filter is not None:
+        filtered_runs = [run for run in manifest.runs if run.task == manifest.task_filter]
+
+    for run in filtered_runs:
         metrics = _load_json(run.metrics_path)
         training_metrics = _load_json(run.training_metrics_path)
         evaluated = metrics.get("evaluated", 0)
@@ -133,22 +194,14 @@ def aggregate_paper_results(manifest_path: str | Path, output_dir: str | Path) -
             writer.writerows(per_class_rows)
 
     main_md = destination / "main_table.md"
-    with main_md.open("w", encoding="utf-8") as handle:
-        handle.write("| run_name | task | family | method | model | accuracy | macro_f1 | parse_rate | runtime_hours | trainable_params | checkpoint_size_mb |\n")
-        handle.write("| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
-        for row in main_rows:
-            runtime_hours = "" if row["runtime_hours"] is None else f"{row['runtime_hours']:.2f}"
-            trainable_params = "" if row["trainable_params"] is None else row["trainable_params"]
-            checkpoint_size_mb = "" if row["checkpoint_size_mb"] is None else f"{row['checkpoint_size_mb']:.2f}"
-            handle.write(
-                f"| {row['run_name']} | {row['task']} | {row['family']} | {row['method']} | {row['model']} | "
-                f"{row['accuracy']:.4f} | {row['macro_f1']:.4f} | {row['parse_rate']:.4f} | "
-                f"{runtime_hours} | {trainable_params} | {checkpoint_size_mb} |\n"
-            )
+    _write_markdown_table(main_md, main_rows)
+
+    method_summary_md = destination / "method_summary.md"
+    _write_method_summary(method_summary_md, main_rows)
 
     summary_json = destination / "summary.json"
     with summary_json.open("w", encoding="utf-8") as handle:
-        json.dump({"runs": summary_rows}, handle, indent=2, ensure_ascii=True)
+        json.dump({"task_filter": manifest.task_filter, "runs": summary_rows}, handle, indent=2, ensure_ascii=True)
         handle.write("\n")
 
     return {
@@ -156,4 +209,5 @@ def aggregate_paper_results(manifest_path: str | Path, output_dir: str | Path) -
         "main_table_md": main_md,
         "per_class_csv": per_class_csv,
         "summary_json": summary_json,
+        "method_summary_md": method_summary_md,
     }

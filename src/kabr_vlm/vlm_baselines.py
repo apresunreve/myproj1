@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from contextlib import ExitStack
 from pathlib import Path
@@ -19,6 +20,40 @@ from kabr_vlm.data.kabr_frames import (
 BEHAVIOR_LABELS = ["Walk", "Graze", "Browse", "Head Up", "Auto-Groom", "Trot", "Run", "Occluded"]
 SUPPORTED_TASKS = {"behavior", "species", "joint"}
 SUPPORTED_PROMPT_MODES = {"plain", "structured", "label"}
+INTERNVL_IMAGE_SIZE = 448
+INTERNVL_MAX_TILES_PER_FRAME = 1
+
+
+def _record_input_id(record: KABRFrameRecord | KABRClipRecord) -> str:
+    if isinstance(record, KABRFrameRecord):
+        return f"{record.original_video_id}:{record.frame_id}"
+    return record.clip_id
+
+
+def _load_existing_prediction_state(output_path: Path) -> tuple[set[str], int, int]:
+    if not output_path.exists():
+        return set(), 0, 0
+
+    completed_ids: set[str] = set()
+    parsed = 0
+    correct = 0
+    with output_path.open("r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            input_id = row.get("input_id")
+            if isinstance(input_id, str):
+                completed_ids.add(input_id)
+            if row.get("parsed") is True:
+                parsed += 1
+            if row.get("correct") is True:
+                correct += 1
+    return completed_ids, parsed, correct
 
 
 def build_prompt(task: str, unit: str, prompt_mode: str) -> str:
@@ -148,6 +183,9 @@ def parse_prediction(task: str, text: str) -> dict[str, str | None]:
 
 
 def load_hf_pipeline(model_id: str):
+    if model_id.startswith("OpenGVLab/InternVL2_5-"):
+        return load_hf_internvl_generator(model_id)
+
     try:
         from transformers import pipeline
     except ImportError as exc:
@@ -161,36 +199,84 @@ def load_hf_pipeline(model_id: str):
         device_map="auto",
         dtype="auto",
         trust_remote_code=True,
+        **_hf_auth_kwargs(),
     )
 
 
-def load_hf_qwen_generator(model_id: str, adapter_path: str | Path | None = None):
+def load_hf_internvl_generator(model_id: str):
+    try:
+        import torch
+        from transformers import AutoModel, AutoTokenizer
+    except ImportError as exc:
+        raise RuntimeError(
+            "InternVL inference requires `transformers` and `torch`. "
+            "Install with `uv pip install -e \".[infer]\"`."
+        ) from exc
+
+    torch_dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else (
+        torch.float16 if torch.cuda.is_available() else torch.float32
+    )
+    model = AutoModel.from_pretrained(
+        model_id,
+        torch_dtype=torch_dtype,
+        low_cpu_mem_usage=False,
+        device_map=None,
+        trust_remote_code=True,
+        **_hf_auth_kwargs(),
+    ).eval()
+    if torch.cuda.is_available():
+        model = model.cuda()
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_id,
+        trust_remote_code=True,
+        use_fast=False,
+        **_hf_auth_kwargs(),
+    )
+    return InternVLGenerator(model=model, tokenizer=tokenizer, torch_dtype=torch_dtype)
+
+
+def load_hf_adapter_generator(model_id: str, adapter_path: str | Path | None = None):
     try:
         import torch
         from peft import PeftModel
-        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+        from transformers import AutoModelForImageTextToText, AutoProcessor, Qwen2_5_VLForConditionalGeneration
     except ImportError as exc:
         raise RuntimeError(
-            "Qwen adapter inference requires `transformers`, `torch`, and `peft`. "
+            "Adapter inference requires `transformers`, `torch`, and `peft`. "
             "Install with `uv pip install -e \".[infer,train]\"`."
         ) from exc
 
     torch_dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else (
         torch.float16 if torch.cuda.is_available() else torch.float32
     )
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        model_id,
-        torch_dtype=torch_dtype,
-        device_map="auto",
-        trust_remote_code=True,
-    )
+    auth_kwargs = _hf_auth_kwargs()
+    if model_id.startswith("Qwen/"):
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            model_id,
+            torch_dtype=torch_dtype,
+            device_map="auto",
+            trust_remote_code=True,
+            **auth_kwargs,
+        )
+    else:
+        model = AutoModelForImageTextToText.from_pretrained(
+            model_id,
+            torch_dtype=torch_dtype,
+            device_map="auto",
+            trust_remote_code=True,
+            **auth_kwargs,
+        )
     if adapter_path is not None:
         model = PeftModel.from_pretrained(model, str(adapter_path))
-    processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
-    return QwenGenerator(model=model, processor=processor)
+    processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True, **auth_kwargs)
+    return HFChatGenerator(model=model, processor=processor)
 
 
-class QwenGenerator:
+def load_hf_qwen_generator(model_id: str, adapter_path: str | Path | None = None):
+    return load_hf_adapter_generator(model_id=model_id, adapter_path=adapter_path)
+
+
+class HFChatGenerator:
     def __init__(self, model, processor) -> None:
         self.model = model
         self.processor = processor
@@ -220,10 +306,8 @@ class QwenGenerator:
                 return_tensors="pt",
                 padding=True,
             )
-        encoded = {
-            key: value.to(self.model.device) if hasattr(value, "to") else value
-            for key, value in encoded.items()
-        }
+        device = _model_device(self.model)
+        encoded = {key: value.to(device) if hasattr(value, "to") else value for key, value in encoded.items()}
         with torch.inference_mode():
             generated = self.model.generate(
                 **encoded,
@@ -239,10 +323,180 @@ class QwenGenerator:
         )[0].strip()
 
 
+class QwenGenerator(HFChatGenerator):
+    pass
+
+
+class InternVLGenerator:
+    def __init__(self, model, tokenizer, torch_dtype) -> None:
+        self.model = model
+        self.tokenizer = tokenizer
+        self.torch_dtype = torch_dtype
+
+    def __call__(self, image_paths: list[str], prompt: str, max_new_tokens: int) -> str:
+        import torch
+
+        pixel_batches: list[torch.Tensor] = []
+        num_patches_list: list[int] = []
+        for image_path in image_paths:
+            pixel_values = _internvl_load_image(
+                image_path,
+                input_size=INTERNVL_IMAGE_SIZE,
+                max_num=INTERNVL_MAX_TILES_PER_FRAME,
+            )
+            num_patches_list.append(pixel_values.shape[0])
+            pixel_batches.append(pixel_values)
+
+        pixel_values = torch.cat(pixel_batches, dim=0) if pixel_batches else None
+        if pixel_values is not None:
+            device = _model_device(self.model)
+            pixel_values = pixel_values.to(device=device, dtype=self.torch_dtype)
+
+        if len(image_paths) <= 1:
+            question = f"<image>\n{prompt}"
+            chat_kwargs: dict[str, Any] = {}
+        else:
+            frame_prefix = "".join(f"Frame{i + 1}: <image>\n" for i in range(len(image_paths)))
+            question = f"{frame_prefix}{prompt}"
+            chat_kwargs = {"num_patches_list": num_patches_list}
+
+        generation_config = {"max_new_tokens": max_new_tokens, "do_sample": False}
+        response = self.model.chat(
+            self.tokenizer,
+            pixel_values,
+            question,
+            generation_config,
+            **chat_kwargs,
+        )
+        if isinstance(response, tuple):
+            response = response[0]
+        return str(response).strip()
+
+
+def _model_device(model) -> str:
+    if hasattr(model, "device"):
+        return str(model.device)
+    try:
+        return str(next(model.parameters()).device)
+    except (AttributeError, StopIteration):
+        return "cpu"
+
+
+def _hf_auth_kwargs() -> dict[str, Any]:
+    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
+    if not token:
+        return {}
+    return {"token": token}
+
+
+def _internvl_build_transform(input_size: int):
+    try:
+        import torchvision.transforms as T
+        from torchvision.transforms.functional import InterpolationMode
+    except ImportError as exc:
+        raise RuntimeError(
+            "InternVL inference requires `torchvision`. Install with `uv pip install -e \".[infer]\"`."
+        ) from exc
+
+    return T.Compose(
+        [
+            T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
+            T.Resize((input_size, input_size), interpolation=InterpolationMode.BICUBIC),
+            T.ToTensor(),
+            T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+        ]
+    )
+
+
+def _internvl_find_closest_aspect_ratio(
+    aspect_ratio: float,
+    target_ratios: list[tuple[int, int]],
+    width: int,
+    height: int,
+    image_size: int,
+) -> tuple[int, int]:
+    best_ratio_diff = float("inf")
+    best_ratio = (1, 1)
+    area = width * height
+    for ratio in target_ratios:
+        target_aspect_ratio = ratio[0] / ratio[1]
+        ratio_diff = abs(aspect_ratio - target_aspect_ratio)
+        if ratio_diff < best_ratio_diff:
+            best_ratio_diff = ratio_diff
+            best_ratio = ratio
+        elif ratio_diff == best_ratio_diff:
+            if area > 0.5 * image_size * image_size * ratio[0] * ratio[1]:
+                best_ratio = ratio
+    return best_ratio
+
+
+def _internvl_dynamic_preprocess(
+    image: Image.Image,
+    min_num: int = 1,
+    max_num: int = 12,
+    image_size: int = INTERNVL_IMAGE_SIZE,
+    use_thumbnail: bool = False,
+) -> list[Image.Image]:
+    orig_width, orig_height = image.size
+    aspect_ratio = orig_width / orig_height
+    target_ratios = sorted(
+        {
+            (i, j)
+            for n in range(min_num, max_num + 1)
+            for i in range(1, n + 1)
+            for j in range(1, n + 1)
+            if min_num <= i * j <= max_num
+        },
+        key=lambda ratio: ratio[0] * ratio[1],
+    )
+    target_aspect_ratio = _internvl_find_closest_aspect_ratio(
+        aspect_ratio,
+        target_ratios,
+        orig_width,
+        orig_height,
+        image_size,
+    )
+    target_width = image_size * target_aspect_ratio[0]
+    target_height = image_size * target_aspect_ratio[1]
+    blocks = target_aspect_ratio[0] * target_aspect_ratio[1]
+    resized = image.resize((target_width, target_height))
+    processed_images: list[Image.Image] = []
+    tiles_per_row = target_width // image_size
+    for index in range(blocks):
+        box = (
+            (index % tiles_per_row) * image_size,
+            (index // tiles_per_row) * image_size,
+            ((index % tiles_per_row) + 1) * image_size,
+            ((index // tiles_per_row) + 1) * image_size,
+        )
+        processed_images.append(resized.crop(box))
+    if use_thumbnail and len(processed_images) != 1:
+        processed_images.append(image.resize((image_size, image_size)))
+    return processed_images
+
+
+def _internvl_load_image(
+    image_path: str,
+    input_size: int = INTERNVL_IMAGE_SIZE,
+    max_num: int = 12,
+):
+    import torch
+
+    transform = _internvl_build_transform(input_size=input_size)
+    with Image.open(image_path) as image:
+        image = image.convert("RGB")
+        processed_images = _internvl_dynamic_preprocess(
+            image=image,
+            image_size=input_size,
+            use_thumbnail=True,
+            max_num=max_num,
+        )
+    pixel_values = [transform(tile) for tile in processed_images]
+    return torch.stack(pixel_values)
+
+
 def run_hf_generation(generator, image_paths: list[str], prompt: str, max_new_tokens: int) -> str:
-    if callable(generator) and not hasattr(generator, "model"):
-        return generator(image_paths=image_paths, prompt=prompt, max_new_tokens=max_new_tokens)
-    if callable(generator) and hasattr(generator, "model"):
+    if isinstance(generator, (HFChatGenerator, InternVLGenerator)):
         return generator(image_paths=image_paths, prompt=prompt, max_new_tokens=max_new_tokens)
 
     with ExitStack() as stack:
@@ -290,6 +544,7 @@ def evaluate_frame_records(
     max_new_tokens: int,
     output_path: str | Path,
     prompt_mode: str = "plain",
+    resume: bool = False,
 ) -> dict[str, float | int | str]:
     if task not in SUPPORTED_TASKS:
         supported = ", ".join(sorted(SUPPORTED_TASKS))
@@ -307,6 +562,7 @@ def evaluate_frame_records(
         max_new_tokens=max_new_tokens,
         output_path=output_path,
         unit="frame",
+        resume=resume,
     )
 
 
@@ -320,6 +576,7 @@ def evaluate_clip_records(
     max_frames_per_clip: int,
     output_path: str | Path,
     prompt_mode: str = "plain",
+    resume: bool = False,
 ) -> dict[str, float | int | str]:
     if task not in SUPPORTED_TASKS:
         supported = ", ".join(sorted(SUPPORTED_TASKS))
@@ -339,6 +596,7 @@ def evaluate_clip_records(
         output_path=output_path,
         unit="clip",
         max_frames_per_clip=max_frames_per_clip,
+        resume=resume,
     )
 
 
@@ -352,17 +610,28 @@ def evaluate_records(
     output_path: str | Path,
     unit: str,
     max_frames_per_clip: int = 8,
+    resume: bool = False,
 ) -> dict[str, float | int | str]:
-    parsed = 0
-    correct = 0
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    total = len(records)
 
-    with output_path.open("w", encoding="utf-8") as handle:
+    completed_ids: set[str] = set()
+    parsed = 0
+    correct = 0
+    mode = "w"
+    if resume:
+        completed_ids, parsed, correct = _load_existing_prediction_state(output_path)
+        mode = "a"
+
+    with output_path.open(mode, encoding="utf-8") as handle:
         for row in records:
+            record_id = _record_input_id(row)
+            if record_id in completed_ids:
+                continue
             if isinstance(row, KABRFrameRecord):
                 image_paths = [row.image_path]
-                input_id = f"{row.original_video_id}:{row.frame_id}"
+                input_id = record_id
                 gold = gold_for_record(task, species=row.species, behavior=row.label_name)
                 extra = {
                     "original_video_id": row.original_video_id,
@@ -372,7 +641,7 @@ def evaluate_records(
                 }
             else:
                 image_paths = sample_clip_frames(row, max_frames=max_frames_per_clip)
-                input_id = row.clip_id
+                input_id = record_id
                 gold = gold_for_record(task, species=row.species, behavior=row.label_name)
                 extra = {
                     "original_video_id": row.original_video_id,
@@ -411,8 +680,9 @@ def evaluate_records(
             }
             handle.write(json.dumps(record, ensure_ascii=True))
             handle.write("\n")
+            handle.flush()
+            completed_ids.add(input_id)
 
-    total = len(records)
     return {
         "evaluated": total,
         "parsed": parsed,

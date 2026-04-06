@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Any
 
@@ -172,11 +173,18 @@ class QwenTaskCollator:
         return full_batch
 
 
+def _hf_auth_kwargs() -> dict[str, Any]:
+    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
+    if not token:
+        return {}
+    return {"token": token}
+
+
 def create_lora_model(config: AppConfig):
     try:
         import torch
         from peft import LoraConfig, get_peft_model
-        from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+        from transformers import AutoModelForImageTextToText, AutoProcessor, Qwen2_5_VLForConditionalGeneration
     except ImportError as exc:
         raise RuntimeError(
             "Fine-tuning requires `transformers`, `torch`, and `peft`. "
@@ -191,15 +199,26 @@ def create_lora_model(config: AppConfig):
     else:
         dtype = torch.float32
 
+    auth_kwargs = _hf_auth_kwargs()
     processor = AutoProcessor.from_pretrained(
         config.model.resolved_processor_id,
         trust_remote_code=True,
+        **auth_kwargs,
     )
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        config.model.base_model_id,
-        torch_dtype=dtype,
-        trust_remote_code=True,
-    )
+    if config.model.base_model_id.startswith("Qwen/"):
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            config.model.base_model_id,
+            torch_dtype=dtype,
+            trust_remote_code=True,
+            **auth_kwargs,
+        )
+    else:
+        model = AutoModelForImageTextToText.from_pretrained(
+            config.model.base_model_id,
+            torch_dtype=dtype,
+            trust_remote_code=True,
+            **auth_kwargs,
+        )
     if config.training.gradient_checkpointing:
         model.gradient_checkpointing_enable()
         model.enable_input_require_grads()
@@ -225,7 +244,7 @@ def create_lora_model(config: AppConfig):
     return model, processor
 
 
-def train_qwen_task_model(config: AppConfig) -> dict[str, Any]:
+def train_hf_task_model(config: AppConfig) -> dict[str, Any]:
     try:
         from transformers import Trainer, TrainingArguments
     except ImportError as exc:
@@ -289,7 +308,11 @@ def train_qwen_task_model(config: AppConfig) -> dict[str, Any]:
     return metrics
 
 
-def evaluate_qwen_adapter(
+def train_qwen_task_model(config: AppConfig) -> dict[str, Any]:
+    return train_hf_task_model(config)
+
+
+def evaluate_hf_adapter(
     annotation_path: str | Path,
     image_root: str | Path,
     classes_path: str | Path,
@@ -305,10 +328,10 @@ def evaluate_qwen_adapter(
 ) -> dict[str, Any]:
     from kabr_vlm.data.kabr_frames import group_frame_records_into_clips, read_kabr_frame_annotations
     from kabr_vlm.metrics import load_prediction_records
-    from kabr_vlm.vlm_baselines import load_hf_qwen_generator
+    from kabr_vlm.vlm_baselines import load_hf_adapter_generator
 
     rows = read_kabr_frame_annotations(annotation_path, image_root, classes_path)
-    generator = load_hf_qwen_generator(model_id=model_id, adapter_path=adapter_path)
+    generator = load_hf_adapter_generator(model_id=model_id, adapter_path=adapter_path)
 
     summary = evaluate_clip_records_with_generator(
         rows=rows,
@@ -332,6 +355,36 @@ def evaluate_qwen_adapter(
     summary["confusion_path"] = str(confusion_path)
     summary["macro_f1"] = metrics["macro_f1"]
     return summary
+
+
+def evaluate_qwen_adapter(
+    annotation_path: str | Path,
+    image_root: str | Path,
+    classes_path: str | Path,
+    model_id: str,
+    adapter_path: str | Path,
+    task: str,
+    output_path: str | Path,
+    max_samples: int | None = None,
+    seed: int = 42,
+    max_new_tokens: int = 8,
+    max_frames_per_clip: int = 8,
+    prompt_mode: str = "label",
+) -> dict[str, Any]:
+    return evaluate_hf_adapter(
+        annotation_path=annotation_path,
+        image_root=image_root,
+        classes_path=classes_path,
+        model_id=model_id,
+        adapter_path=adapter_path,
+        task=task,
+        output_path=output_path,
+        max_samples=max_samples,
+        seed=seed,
+        max_new_tokens=max_new_tokens,
+        max_frames_per_clip=max_frames_per_clip,
+        prompt_mode=prompt_mode,
+    )
 
 
 def evaluate_clip_records_with_generator(

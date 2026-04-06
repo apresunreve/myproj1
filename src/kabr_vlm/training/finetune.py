@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from kabr_vlm.config import load_config
-from kabr_vlm.training.qwen_tasks import train_qwen_task_model
+from kabr_vlm.training.qwen_tasks import train_hf_task_model
 
 
 def count_jsonl_rows(path: Path) -> int:
@@ -59,7 +59,7 @@ def main() -> None:
     if config.training.method != "lora":
         raise ValueError("This entrypoint currently supports method=lora. Use dedicated commands for other methods.")
 
-    metrics = train_qwen_task_model(config)
+    metrics = train_hf_task_model(config)
     print(
         "Training complete. "
         f"train_samples={metrics['train_samples']} val_samples={metrics['val_samples']} "
