@@ -1,0 +1,34 @@
+project_name: baboonland-vlm-behavior-frozen-linear-eval
+seed: 42
+
+data:
+  train_file: data/processed/baboonland_behavior_train.jsonl
+  val_file: data/processed/baboonland_behavior_val.jsonl
+  video_root:
+  task_mode: action_recognition
+  input_type: clip
+  max_frames_per_clip: 8
+  max_train_samples:
+  max_val_samples:
+
+model:
+  name: Qwen/Qwen2.5-VL-3B-Instruct
+  processor_id:
+  adapter_path:
+  max_frames: 8
+  precision: bf16
+  prompt_mode: label
+  output_format: plain
+
+training:
+  output_dir: artifacts/baboonland_eval/frozen/qwen25vl3b/linear
+  method: frozen_linear
+  feature_batch_size: 2
+  classifier_type: linear
+  classifier_epochs: 25
+  classifier_learning_rate: 1.0e-3
+  classifier_weight_decay: 1.0e-4
+  classifier_hidden_dim: 256
+  classifier_dropout: 0.1
+  seed: 42
+  dry_run: false

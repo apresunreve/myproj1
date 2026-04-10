@@ -7,8 +7,9 @@ from typing import Any
 from PIL import Image
 
 from kabr_vlm.config import AppConfig
+from kabr_vlm.datasets import SPECIES_LABELS, get_dataset_spec
 from kabr_vlm.metrics import score_prediction_records, write_confusion_csv, write_metrics
-from kabr_vlm.vlm_baselines import BEHAVIOR_LABELS, SPECIES_LABELS, parse_prediction
+from kabr_vlm.vlm_baselines import BEHAVIOR_LABELS, parse_prediction
 
 
 TASK_TO_LABELS = {
@@ -43,6 +44,26 @@ def task_prompt(task_mode: str) -> str:
             "Reply with exactly one label and no extra text."
         )
     raise ValueError(f"Unsupported task_mode: {task_mode}")
+
+
+def label_space_for_examples(examples: list[dict[str, Any]], task_mode: str) -> list[str]:
+    if examples:
+        metadata = examples[0].get("metadata", {})
+        label_space = metadata.get("label_space", {}) if isinstance(metadata, dict) else {}
+        if task_mode == "action_recognition":
+            behavior_labels = label_space.get("behavior")
+            if isinstance(behavior_labels, list) and behavior_labels:
+                return list(behavior_labels)
+        if task_mode == "animal_recognition":
+            species_labels = label_space.get("species")
+            if isinstance(species_labels, list) and species_labels:
+                return list(species_labels)
+        dataset = metadata.get("dataset") if isinstance(metadata, dict) else None
+        if isinstance(dataset, str):
+            spec = get_dataset_spec(dataset)
+            if task_mode == "animal_recognition" and spec.species_labels:
+                return list(spec.species_labels)
+    return list(TASK_TO_LABELS[task_mode])
 
 
 def load_jsonl_examples(path: Path, max_examples: int | None = None) -> list[dict[str, Any]]:
@@ -95,9 +116,18 @@ class QwenTaskDataset:
         self._examples = []
         for row in examples:
             task_mode = row["task"]
-            parsed = parse_prediction(TASK_TO_EVAL_NAME[task_mode], row["answer"].strip())
             label_key = TASK_TO_LABEL_KEY[task_mode]
-            label = parsed.get(label_key)
+            metadata = dict(row.get("metadata", {}))
+            label = metadata.get(label_key)
+            if not isinstance(label, str):
+                label_space = metadata.get("label_space", {}) if isinstance(metadata, dict) else {}
+                parsed = parse_prediction(
+                    TASK_TO_EVAL_NAME[task_mode],
+                    row["answer"].strip(),
+                    behavior_labels=label_space.get("behavior"),
+                    species_labels=label_space.get("species"),
+                )
+                label = parsed.get(label_key)
             if label is None:
                 raise ValueError(f"Could not parse label from answer for example {row['id']}: {row['answer']}")
             self._examples.append(
@@ -108,7 +138,7 @@ class QwenTaskDataset:
                     answer=row["answer"].strip(),
                     label=label,
                     task_mode=task_mode,
-                    metadata=dict(row.get("metadata", {})),
+                    metadata=metadata,
                 )
             )
 
@@ -325,12 +355,13 @@ def evaluate_hf_adapter(
     max_new_tokens: int = 8,
     max_frames_per_clip: int = 8,
     prompt_mode: str = "label",
+    dataset: str = "kabr",
 ) -> dict[str, Any]:
-    from kabr_vlm.data.kabr_frames import group_frame_records_into_clips, read_kabr_frame_annotations
+    from kabr_vlm.data.kabr_frames import group_frame_records_into_clips, read_charades_frame_annotations
     from kabr_vlm.metrics import load_prediction_records
     from kabr_vlm.vlm_baselines import load_hf_adapter_generator
 
-    rows = read_kabr_frame_annotations(annotation_path, image_root, classes_path)
+    rows = read_charades_frame_annotations(annotation_path, image_root, classes_path, dataset=dataset)
     generator = load_hf_adapter_generator(model_id=model_id, adapter_path=adapter_path)
 
     summary = evaluate_clip_records_with_generator(
@@ -344,6 +375,7 @@ def evaluate_hf_adapter(
         max_frames_per_clip=max_frames_per_clip,
         output_path=output_path,
         prompt_mode=prompt_mode,
+        dataset=dataset,
     )
     metrics_rows = load_prediction_records(output_path)
     metrics = score_prediction_records(metrics_rows)
@@ -370,6 +402,7 @@ def evaluate_qwen_adapter(
     max_new_tokens: int = 8,
     max_frames_per_clip: int = 8,
     prompt_mode: str = "label",
+    dataset: str = "kabr",
 ) -> dict[str, Any]:
     return evaluate_hf_adapter(
         annotation_path=annotation_path,
@@ -384,6 +417,7 @@ def evaluate_qwen_adapter(
         max_new_tokens=max_new_tokens,
         max_frames_per_clip=max_frames_per_clip,
         prompt_mode=prompt_mode,
+        dataset=dataset,
     )
 
 
@@ -398,13 +432,15 @@ def evaluate_clip_records_with_generator(
     max_frames_per_clip: int,
     output_path: str | Path,
     prompt_mode: str,
+    dataset: str = "kabr",
 ):
     from kabr_vlm.data.kabr_frames import group_frame_records_into_clips, sample_records
-    from kabr_vlm.vlm_baselines import build_prompt, evaluate_records
+    from kabr_vlm.vlm_baselines import build_prompt, evaluate_records, behavior_labels_for_rows
 
     clips = group_frame_records_into_clips(rows)
     sample = sample_records(clips, max_samples=max_samples, seed=seed)
-    prompt = build_prompt(task, unit="clip", prompt_mode=prompt_mode)
+    behavior_labels = behavior_labels_for_rows(rows)
+    prompt = build_prompt(task, unit="clip", prompt_mode=prompt_mode, dataset=dataset, behavior_labels=behavior_labels)
     return evaluate_records(
         records=sample,
         generator=generator,
@@ -415,4 +451,7 @@ def evaluate_clip_records_with_generator(
         output_path=output_path,
         unit="clip",
         max_frames_per_clip=max_frames_per_clip,
+        dataset=dataset,
+        behavior_labels=behavior_labels,
+        species_labels=list(get_dataset_spec(dataset).species_labels),
     )

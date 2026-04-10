@@ -1,0 +1,6 @@
+slug	model_id
+qwen25vl3b_baboonland_behavior_clip_val_full	Qwen/Qwen2.5-VL-3B-Instruct
+qwen25vl7b_baboonland_behavior_clip_val_full	Qwen/Qwen2.5-VL-7B-Instruct
+llava_onevision_qwen2_7b_baboonland_behavior_clip_val_full	llava-hf/llava-onevision-qwen2-7b-ov-hf
+gemma3_4b_baboonland_behavior_clip_val_full	google/gemma-3-4b-it
+idefics3_8b_baboonland_behavior_clip_val_full	HuggingFaceM4/Idefics3-8B-Llama3

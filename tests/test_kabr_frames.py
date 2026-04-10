@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from kabr_vlm.data.kabr_frames import infer_species, load_label_map, read_kabr_frame_annotations
+from kabr_vlm.data.kabr_frames import infer_species, load_label_map, read_charades_frame_annotations, read_kabr_frame_annotations
 
 
 def test_infer_species_from_video_prefix() -> None:
@@ -28,3 +28,18 @@ def test_load_label_map_uses_numeric_ids() -> None:
     labels = load_label_map(Path("../KABR_files/annotation/classes.json"))
     assert labels[0] == "Walk"
     assert labels[7] == "Occluded"
+
+
+def test_read_baboonland_frame_annotations_parses_behavior_only_format() -> None:
+    rows = read_charades_frame_annotations(
+        annotation_path=Path("/home/jhyan/baboon_data/charades/annotation/train.csv"),
+        image_root=Path("/home/jhyan/baboon_data/charades/dataset/image"),
+        classes_path=Path("/home/jhyan/baboon_data/charades/annotation/classes.json"),
+        dataset="baboonland",
+    )
+    assert rows
+    first = rows[0]
+    assert first.original_video_id == "B0001.1"
+    assert first.label_name == "Walking/Running"
+    assert first.species is None
+    assert first.dataset == "baboonland"

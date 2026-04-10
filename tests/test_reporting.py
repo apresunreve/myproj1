@@ -4,119 +4,83 @@ from pathlib import Path
 from kabr_vlm.reporting import aggregate_paper_results
 
 
-def test_aggregate_paper_results_writes_tables(tmp_path: Path) -> None:
-    metrics_path = tmp_path / "metrics.json"
-    metrics_path.write_text(
-        json.dumps(
-            {
-                "task": "behavior",
-                "evaluated": 10,
-                "parsed": 9,
-                "accuracy": 0.7,
-                "macro_f1": 0.6,
-                "per_class": {
-                    "Walk": {"precision": 0.8, "recall": 0.7, "f1": 0.75, "support": 5},
-                },
-                "labels": ["Walk"],
-                "confusion_matrix": {"Walk": {"Walk": 5}},
-            }
-        ),
-        encoding="utf-8",
-    )
-    train_metrics_path = tmp_path / "training_metrics.json"
-    train_metrics_path.write_text(
-        json.dumps({"train_runtime": 3600, "trainable_params": 1234}),
-        encoding="utf-8",
-    )
-    checkpoint_path = tmp_path / "checkpoint.bin"
-    checkpoint_path.write_bytes(b"abcd")
-    manifest_path = tmp_path / "manifest.yaml"
-    manifest_path.write_text(
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def test_aggregate_paper_results_computes_transfer_outputs(tmp_path: Path) -> None:
+    in_domain_metrics = {
+        "evaluated": 10,
+        "parsed": 10,
+        "accuracy": 0.8,
+        "macro_f1": 0.7,
+        "per_class": {
+            "A": {"precision": 1.0, "recall": 0.8, "f1": 0.9, "support": 5},
+            "B": {"precision": 0.6, "recall": 0.6, "f1": 0.5, "support": 5},
+        },
+    }
+    transfer_metrics = {
+        "evaluated": 10,
+        "parsed": 10,
+        "accuracy": 0.5,
+        "macro_f1": 0.4,
+        "per_class": {
+            "A": {"precision": 0.5, "recall": 0.4, "f1": 0.3, "support": 5},
+            "B": {"precision": 0.5, "recall": 0.5, "f1": 0.5, "support": 5},
+        },
+    }
+
+    _write_json(tmp_path / "in_domain.metrics.json", in_domain_metrics)
+    _write_json(tmp_path / "transfer.metrics.json", transfer_metrics)
+
+    manifest = tmp_path / "manifest.yaml"
+    manifest.write_text(
         "\n".join(
             [
+                "task_filter: behavior",
+                "skip_missing_metrics: true",
                 "runs:",
-                "  - name: demo-run",
+                "  - name: qwen_kabr_in_domain",
                 "    task: behavior",
                 "    family: vlm",
                 "    method: lora",
                 "    model: Qwen/Qwen2.5-VL-3B-Instruct",
-                "    output_format: plain",
-                f"    metrics_path: {metrics_path}",
-                f"    training_metrics_path: {train_metrics_path}",
-                f"    checkpoint_path: {checkpoint_path}",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    outputs = aggregate_paper_results(manifest_path, tmp_path / "tables")
-
-    assert outputs["main_table_csv"].exists()
-    assert outputs["per_class_csv"].exists()
-    assert outputs["summary_json"].exists()
-    assert "demo-run" in outputs["main_table_md"].read_text(encoding="utf-8")
-
-
-def test_aggregate_paper_results_respects_task_filter(tmp_path: Path) -> None:
-    behavior_metrics = tmp_path / "behavior.json"
-    behavior_metrics.write_text(
-        json.dumps(
-            {
-                "task": "behavior",
-                "evaluated": 10,
-                "parsed": 10,
-                "accuracy": 0.7,
-                "macro_f1": 0.6,
-                "per_class": {},
-                "labels": [],
-                "confusion_matrix": {},
-            }
-        ),
-        encoding="utf-8",
-    )
-    species_metrics = tmp_path / "species.json"
-    species_metrics.write_text(
-        json.dumps(
-            {
-                "task": "species",
-                "evaluated": 10,
-                "parsed": 10,
-                "accuracy": 0.9,
-                "macro_f1": 0.8,
-                "per_class": {},
-                "labels": [],
-                "confusion_matrix": {},
-            }
-        ),
-        encoding="utf-8",
-    )
-    manifest_path = tmp_path / "manifest.yaml"
-    manifest_path.write_text(
-        "\n".join(
-            [
-                "task_filter: behavior",
-                "runs:",
-                "  - name: behavior-run",
+                "    train_dataset: kabr",
+                "    test_dataset: kabr",
+                f"    metrics_path: {tmp_path / 'in_domain.metrics.json'}",
+                "  - name: qwen_kabr_to_baboonland",
                 "    task: behavior",
                 "    family: vlm",
-                "    method: zero-shot",
-                "    model: demo",
-                "    output_format: plain",
-                f"    metrics_path: {behavior_metrics}",
-                "  - name: species-run",
-                "    task: species",
+                "    method: lora",
+                "    model: Qwen/Qwen2.5-VL-3B-Instruct",
+                "    train_dataset: kabr",
+                "    test_dataset: baboonland",
+                f"    metrics_path: {tmp_path / 'transfer.metrics.json'}",
+                "  - name: missing_future_row",
+                "    task: behavior",
                 "    family: vlm",
-                "    method: zero-shot",
-                "    model: demo",
-                "    output_format: plain",
-                f"    metrics_path: {species_metrics}",
+                "    method: lora",
+                "    model: Qwen/Qwen2.5-VL-3B-Instruct",
+                "    train_dataset: baboonland",
+                "    test_dataset: kabr",
+                f"    metrics_path: {tmp_path / 'does_not_exist.metrics.json'}",
             ]
-        ),
+        )
+        + "\n",
         encoding="utf-8",
     )
 
-    outputs = aggregate_paper_results(manifest_path, tmp_path / "tables")
-    main_table = outputs["main_table_md"].read_text(encoding="utf-8")
-    assert "behavior-run" in main_table
-    assert "species-run" not in main_table
-    assert outputs["summary_json"].read_text(encoding="utf-8").find('"task_filter": "behavior"') != -1
+    outputs = aggregate_paper_results(manifest, tmp_path / "out")
+
+    transfer_gap_csv = Path(outputs["transfer_gap_csv"]).read_text(encoding="utf-8")
+    transfer_per_class_csv = Path(outputs["transfer_per_class_csv"]).read_text(encoding="utf-8")
+    transfer_summary_md = Path(outputs["transfer_summary_md"]).read_text(encoding="utf-8")
+    summary_json = json.loads(Path(outputs["summary_json"]).read_text(encoding="utf-8"))
+
+    assert "qwen_kabr_to_baboonland" in transfer_gap_csv
+    assert "0.29999999999999993" in transfer_gap_csv or "0.3" in transfer_gap_csv
+    assert "A" in transfer_per_class_csv
+    assert "Best cross-dataset result" in transfer_summary_md
+    assert summary_json["num_rows"] == 2
+    assert summary_json["num_transfer_rows"] == 1

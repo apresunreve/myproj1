@@ -11,7 +11,13 @@ from torch import nn
 
 from kabr_vlm.config import AppConfig
 from kabr_vlm.metrics import score_prediction_records, write_confusion_csv, write_metrics
-from kabr_vlm.training.qwen_tasks import TASK_TO_EVAL_NAME, TASK_TO_LABELS, QwenTaskDataset, choose_precision_flags, load_jsonl_examples
+from kabr_vlm.training.qwen_tasks import (
+    TASK_TO_EVAL_NAME,
+    QwenTaskDataset,
+    choose_precision_flags,
+    label_space_for_examples,
+    load_jsonl_examples,
+)
 
 
 def _images_to_rgb(image_paths: list[str]) -> list[Image.Image]:
@@ -229,7 +235,7 @@ def train_frozen_feature_model(config: AppConfig) -> dict[str, Any]:
     _write_feature_tensor(features_dir / "train.pt", train_batch, config.data.task_mode)
     _write_feature_tensor(features_dir / "val.pt", val_batch, config.data.task_mode)
 
-    class_names = TASK_TO_LABELS[config.data.task_mode]
+    class_names = label_space_for_examples(train_examples, config.data.task_mode)
     train_targets = _encode_labels(train_batch.labels, class_names)
     val_targets = _encode_labels(val_batch.labels, class_names)
     classifier = FeatureClassifier(

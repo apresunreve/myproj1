@@ -20,7 +20,7 @@ from kabr_vlm.training.frozen_features import (
     _write_feature_tensor,
     evaluate_frozen_feature_model,
 )
-from kabr_vlm.training.qwen_tasks import TASK_TO_LABELS, QwenTaskDataset, choose_precision_flags, load_jsonl_examples
+from kabr_vlm.training.qwen_tasks import QwenTaskDataset, choose_precision_flags, label_space_for_examples, load_jsonl_examples
 
 
 def _device_for_model(model) -> torch.device:
@@ -277,7 +277,7 @@ def train_distilled_feature_model(config: AppConfig) -> dict[str, Any]:
             split_name="val",
         )
 
-        class_names = TASK_TO_LABELS[config.data.task_mode]
+        class_names = label_space_for_examples(train_examples, config.data.task_mode)
         train_targets = _encode_labels(train_batch.labels, class_names)
         val_targets = _encode_labels(val_batch.labels, class_names)
         classifier = FeatureClassifier(

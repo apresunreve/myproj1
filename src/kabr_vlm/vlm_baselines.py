@@ -10,12 +10,13 @@ from PIL import Image
 from kabr_vlm.data.kabr_frames import (
     KABRClipRecord,
     KABRFrameRecord,
-    SPECIES_LABELS,
     group_frame_records_into_clips,
+    read_charades_frame_annotations,
     read_kabr_frame_annotations,
     sample_clip_frames,
     sample_records,
 )
+from kabr_vlm.datasets import SPECIES_LABELS, get_dataset_spec, ordered_label_names
 
 BEHAVIOR_LABELS = ["Walk", "Graze", "Browse", "Head Up", "Auto-Groom", "Trot", "Run", "Occluded"]
 SUPPORTED_TASKS = {"behavior", "species", "joint"}
@@ -56,57 +57,74 @@ def _load_existing_prediction_state(output_path: Path) -> tuple[set[str], int, i
     return completed_ids, parsed, correct
 
 
-def build_prompt(task: str, unit: str, prompt_mode: str) -> str:
-    noun = "drone frame" if unit == "frame" else "drone clip represented by ordered frames"
+def build_prompt(
+    task: str,
+    unit: str,
+    prompt_mode: str,
+    dataset: str = "kabr",
+    behavior_labels: list[str] | None = None,
+    species_labels: list[str] | None = None,
+) -> str:
+    noun = "frame" if unit == "frame" else "clip represented by ordered frames"
     if prompt_mode not in SUPPORTED_PROMPT_MODES:
         raise ValueError(f"Unsupported prompt mode: {prompt_mode}")
+    spec = get_dataset_spec(dataset)
+    dataset_name = spec.prompt_name
+    behavior_candidates = behavior_labels or BEHAVIOR_LABELS
+    species_candidates = species_labels or list(spec.species_labels) or SPECIES_LABELS
 
     if task == "behavior":
-        options = ", ".join(BEHAVIOR_LABELS)
+        if "behavior" not in spec.supported_tasks and "action_recognition" not in spec.supported_tasks:
+            raise ValueError(f"Task '{task}' is not supported for dataset '{dataset}'.")
+        options = ", ".join(behavior_candidates)
         if prompt_mode == "label":
             return (
-                f"You are classifying a {noun} from the KABR wildlife dataset. "
+                f"You are classifying a {noun} from the {dataset_name}. "
                 f"Choose exactly one behavior label from: {options}. "
                 "Reply with exactly one label and no extra text."
             )
         if prompt_mode == "structured":
             return (
-                f"You are classifying a {noun} from the KABR wildlife dataset. "
+                f"You are classifying a {noun} from the {dataset_name}. "
                 f"Choose exactly one behavior label from: {options}. "
                 'Reply with code: recognize(entity_type="action", value="<label>").'
             )
         return (
-            f"You are classifying a {noun} from the KABR wildlife dataset. "
+            f"You are classifying a {noun} from the {dataset_name}. "
             f"Choose exactly one behavior label from: {options}. "
             'Reply with JSON: {"behavior": "<label>"}'
         )
 
     if task == "species":
-        options = ", ".join(SPECIES_LABELS)
+        if "species" not in spec.supported_tasks and "animal_recognition" not in spec.supported_tasks:
+            raise ValueError(f"Task '{task}' is not supported for dataset '{dataset}'.")
+        options = ", ".join(species_candidates)
         if prompt_mode == "label":
             return (
-                f"You are classifying a {noun} from the KABR wildlife dataset. "
+                f"You are classifying a {noun} from the {dataset_name}. "
                 f"Choose exactly one species label from: {options}. "
                 "Reply with exactly one label and no extra text."
             )
         if prompt_mode == "structured":
             return (
-                f"You are classifying a {noun} from the KABR wildlife dataset. "
+                f"You are classifying a {noun} from the {dataset_name}. "
                 f"Choose exactly one species label from: {options}. "
                 'Reply with code: recognize(entity_type="animal", value="<label>").'
             )
         return (
-            f"You are classifying a {noun} from the KABR wildlife dataset. "
+            f"You are classifying a {noun} from the {dataset_name}. "
             f"Choose exactly one species label from: {options}. "
             'Reply with JSON: {"species": "<label>"}'
         )
 
     if task == "joint":
-        behavior_options = ", ".join(BEHAVIOR_LABELS)
-        species_options = ", ".join(SPECIES_LABELS)
+        if "joint" not in spec.supported_tasks and "joint_animal_action_recognition" not in spec.supported_tasks:
+            raise ValueError(f"Task '{task}' is not supported for dataset '{dataset}'.")
+        behavior_options = ", ".join(behavior_candidates)
+        species_options = ", ".join(species_candidates)
         if prompt_mode == "structured":
             return (
-                f"You are classifying a {noun} from the KABR wildlife dataset. "
+                f"You are classifying a {noun} from the {dataset_name}. "
                 f"Choose one species from: {species_options}. "
                 f"Choose one behavior from: {behavior_options}. "
                 'Reply with two lines:\n'
@@ -114,7 +132,7 @@ def build_prompt(task: str, unit: str, prompt_mode: str) -> str:
                 'recognize(entity_type="action", value="<behavior>", condition=\'animal == "<species>"\')'
             )
         return (
-            f"You are classifying a {noun} from the KABR wildlife dataset. "
+            f"You are classifying a {noun} from the {dataset_name}. "
             f"Choose one species from: {species_options}. "
             f"Choose one behavior from: {behavior_options}. "
             'Reply with JSON: {"species": "<label>", "behavior": "<label>"}'
@@ -159,11 +177,18 @@ def extract_label(text: str, candidates: list[str]) -> str | None:
     return match_candidate(text, candidates)
 
 
-def parse_prediction(task: str, text: str) -> dict[str, str | None]:
+def parse_prediction(
+    task: str,
+    text: str,
+    behavior_labels: list[str] | None = None,
+    species_labels: list[str] | None = None,
+) -> dict[str, str | None]:
+    behavior_candidates = behavior_labels or BEHAVIOR_LABELS
+    species_candidates = species_labels or SPECIES_LABELS
     if task == "behavior":
-        return {"behavior": extract_label(text, BEHAVIOR_LABELS)}
+        return {"behavior": extract_label(text, behavior_candidates)}
     if task == "species":
-        return {"species": extract_label(text, SPECIES_LABELS)}
+        return {"species": extract_label(text, species_candidates)}
 
     payload = extract_json_object(text)
     behavior = None
@@ -172,14 +197,19 @@ def parse_prediction(task: str, text: str) -> dict[str, str | None]:
         raw_behavior = payload.get("behavior")
         raw_species = payload.get("species")
         if isinstance(raw_behavior, str):
-            behavior = match_candidate(raw_behavior, BEHAVIOR_LABELS)
+            behavior = match_candidate(raw_behavior, behavior_candidates)
         if isinstance(raw_species, str):
-            species = match_candidate(raw_species, SPECIES_LABELS)
+            species = match_candidate(raw_species, species_candidates)
     if behavior is None:
-        behavior = extract_label(text, BEHAVIOR_LABELS)
+        behavior = extract_label(text, behavior_candidates)
     if species is None:
-        species = extract_label(text, SPECIES_LABELS)
+        species = extract_label(text, species_candidates)
     return {"behavior": behavior, "species": species}
+
+
+def behavior_labels_for_rows(rows: list[KABRFrameRecord] | list[KABRClipRecord]) -> list[str]:
+    label_names = {row.label_id: row.label_name for row in rows}
+    return [label_names[index] for index in sorted(label_names)]
 
 
 def load_hf_pipeline(model_id: str):
@@ -545,6 +575,7 @@ def evaluate_frame_records(
     output_path: str | Path,
     prompt_mode: str = "plain",
     resume: bool = False,
+    dataset: str = "kabr",
 ) -> dict[str, float | int | str]:
     if task not in SUPPORTED_TASKS:
         supported = ", ".join(sorted(SUPPORTED_TASKS))
@@ -552,7 +583,8 @@ def evaluate_frame_records(
 
     sample = sample_records(rows, max_samples=max_samples, seed=seed)
     generator = load_hf_pipeline(model_id)
-    prompt = build_prompt(task, unit="frame", prompt_mode=prompt_mode)
+    behavior_labels = behavior_labels_for_rows(rows)
+    prompt = build_prompt(task, unit="frame", prompt_mode=prompt_mode, dataset=dataset, behavior_labels=behavior_labels)
     return evaluate_records(
         records=sample,
         generator=generator,
@@ -563,6 +595,9 @@ def evaluate_frame_records(
         output_path=output_path,
         unit="frame",
         resume=resume,
+        dataset=dataset,
+        behavior_labels=behavior_labels,
+        species_labels=list(get_dataset_spec(dataset).species_labels),
     )
 
 
@@ -577,6 +612,7 @@ def evaluate_clip_records(
     output_path: str | Path,
     prompt_mode: str = "plain",
     resume: bool = False,
+    dataset: str = "kabr",
 ) -> dict[str, float | int | str]:
     if task not in SUPPORTED_TASKS:
         supported = ", ".join(sorted(SUPPORTED_TASKS))
@@ -585,7 +621,8 @@ def evaluate_clip_records(
     clips = group_frame_records_into_clips(rows)
     sample = sample_records(clips, max_samples=max_samples, seed=seed)
     generator = load_hf_pipeline(model_id)
-    prompt = build_prompt(task, unit="clip", prompt_mode=prompt_mode)
+    behavior_labels = behavior_labels_for_rows(rows)
+    prompt = build_prompt(task, unit="clip", prompt_mode=prompt_mode, dataset=dataset, behavior_labels=behavior_labels)
     return evaluate_records(
         records=sample,
         generator=generator,
@@ -597,6 +634,9 @@ def evaluate_clip_records(
         unit="clip",
         max_frames_per_clip=max_frames_per_clip,
         resume=resume,
+        dataset=dataset,
+        behavior_labels=behavior_labels,
+        species_labels=list(get_dataset_spec(dataset).species_labels),
     )
 
 
@@ -611,6 +651,9 @@ def evaluate_records(
     unit: str,
     max_frames_per_clip: int = 8,
     resume: bool = False,
+    dataset: str = "kabr",
+    behavior_labels: list[str] | None = None,
+    species_labels: list[str] | None = None,
 ) -> dict[str, float | int | str]:
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -657,7 +700,7 @@ def evaluate_records(
                 prompt=prompt,
                 max_new_tokens=max_new_tokens,
             )
-            pred = parse_prediction(task, raw_text)
+            pred = parse_prediction(task, raw_text, behavior_labels=behavior_labels, species_labels=species_labels)
             parsed_ok = all(value is not None for value in pred.values())
             if parsed_ok:
                 parsed += 1
@@ -669,6 +712,7 @@ def evaluate_records(
                 "input_id": input_id,
                 "unit": unit,
                 "task": task,
+                "dataset": dataset,
                 "model_id": model_id,
                 "gold": gold,
                 "prediction": pred,
@@ -676,6 +720,10 @@ def evaluate_records(
                 "correct": correct_flag,
                 "raw_text": raw_text,
                 "input_image_paths": image_paths,
+                "label_space": {
+                    "behavior": behavior_labels or [],
+                    "species": species_labels or [],
+                },
                 **extra,
             }
             handle.write(json.dumps(record, ensure_ascii=True))
@@ -703,6 +751,7 @@ def evaluate_hf_vlm_on_kabr(
     max_new_tokens: int,
     output_path: str | Path,
     prompt_mode: str = "plain",
+    resume: bool = False,
 ) -> dict[str, float | int | str]:
     rows = read_kabr_frame_annotations(annotation_path, image_root, classes_path)
     return evaluate_frame_records(
@@ -714,4 +763,6 @@ def evaluate_hf_vlm_on_kabr(
         max_new_tokens=max_new_tokens,
         output_path=output_path,
         prompt_mode=prompt_mode,
+        resume=resume,
+        dataset="kabr",
     )

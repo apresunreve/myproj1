@@ -54,3 +54,35 @@ def test_convert_kabr_split_to_videoqa_builds_plain_species_examples() -> None:
     assert first.task == "animal_recognition"
     assert first.answer in {"giraffe", "plains zebra", "grevys zebra"}
     assert "Reply with exactly one label" in first.prompt
+
+
+def test_convert_baboonland_split_to_videoqa_builds_behavior_examples() -> None:
+    examples = convert_kabr_split_to_videoqa(
+        annotation_path=Path("/home/jhyan/baboon_data/charades/annotation/val.csv"),
+        image_root=Path("/home/jhyan/baboon_data/charades/dataset/image"),
+        classes_path=Path("/home/jhyan/baboon_data/charades/annotation/classes.json"),
+        dataset="baboonland",
+        task="action_recognition",
+        max_frames_per_clip=4,
+        output_format="plain",
+    )
+
+    assert examples
+    first = examples[0]
+    assert first.metadata["dataset"] == "baboonland"
+    assert first.metadata["species"] is None
+    assert first.answer in {
+        "Walking/Running",
+        "Sitting/Standing",
+        "Fighting/Playing",
+        "Self-Grooming",
+        "Being Groomed",
+        "Grooming Somebody",
+        "Mutual Grooming",
+        "Infant-Carrying",
+        "Foraging",
+        "Drinking",
+        "Mounting",
+        "Sleeping",
+        "Occluded",
+    }

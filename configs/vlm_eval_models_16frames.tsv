@@ -1,0 +1,7 @@
+slug	model_id
+smolvlm256m_behavior_clip_val_full_16f	HuggingFaceTB/SmolVLM-256M-Instruct
+qwen25vl3b_behavior_clip_val_full_16f	Qwen/Qwen2.5-VL-3B-Instruct
+gemma3_4b_behavior_clip_val_full_16f	google/gemma-3-4b-it
+idefics3_8b_behavior_clip_val_full_16f	HuggingFaceM4/Idefics3-8B-Llama3
+llava_onevision_qwen2_7b_behavior_clip_val_full_16f	llava-hf/llava-onevision-qwen2-7b-ov-hf
+qwen25vl7b_behavior_clip_val_full_16f	Qwen/Qwen2.5-VL-7B-Instruct

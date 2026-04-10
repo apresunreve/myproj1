@@ -3,12 +3,15 @@ from pathlib import Path
 import typer
 
 from kabr_vlm.data.kabr import (
+    convert_charades_split_to_clip_manifests,
     convert_annotations,
     convert_kabr_split_to_videoqa,
     read_annotations,
+    write_clip_manifest_jsonl,
     write_jsonl,
 )
-from kabr_vlm.data.kabr_frames import read_kabr_frame_annotations
+from kabr_vlm.data.kabr_frames import read_charades_frame_annotations, read_kabr_frame_annotations
+from kabr_vlm.datasets import ordered_label_names
 from kabr_vlm.metrics import (
     load_prediction_records,
     score_prediction_records,
@@ -39,6 +42,7 @@ def convert_kabr_split(
     annotation: Path = typer.Option(..., exists=True, readable=True, help="KABR split annotation file."),
     image_root: Path = typer.Option(..., exists=True, file_okay=False, help="Root KABR image dir."),
     classes: Path = typer.Option(..., exists=True, readable=True, help="KABR classes.json path."),
+    dataset: str = typer.Option("kabr", help="Dataset name: kabr or baboonland."),
     task: str = typer.Option("joint_animal_action_recognition", help="One of: animal_recognition, action_recognition, joint_animal_action_recognition."),
     max_frames_per_clip: int = typer.Option(8, min=1, help="Max ordered frames to keep per clip."),
     output_format: str = typer.Option("structured", help="One of: structured, plain."),
@@ -48,6 +52,7 @@ def convert_kabr_split(
         annotation_path=annotation,
         image_root=image_root,
         classes_path=classes,
+        dataset=dataset,
         task=task,
         max_frames_per_clip=max_frames_per_clip,
         output_format=output_format,
@@ -61,6 +66,7 @@ def eval_frame_hf_vlm(
     annotation: Path = typer.Option(..., exists=True, readable=True, help="KABR split annotation file."),
     image_root: Path = typer.Option(..., exists=True, file_okay=False, help="Root KABR image dir."),
     classes: Path = typer.Option(..., exists=True, readable=True, help="KABR classes.json path."),
+    dataset: str = typer.Option("kabr", help="Dataset name: kabr or baboonland."),
     model_id: str = typer.Option(..., help="Hugging Face VLM model id."),
     task: str = typer.Option("behavior", help="One of: behavior, species, joint."),
     prompt_mode: str = typer.Option("plain", help="One of: plain, structured."),
@@ -72,6 +78,8 @@ def eval_frame_hf_vlm(
     output: Path = typer.Option(..., help="Prediction JSONL output path."),
 ) -> None:
     _ = max_frames_per_clip
+    if dataset != "kabr":
+        raise typer.BadParameter("Frame-level HF VLM eval currently supports only dataset=kabr.")
     summary = evaluate_hf_vlm_on_kabr(
         annotation_path=annotation,
         image_root=image_root,
@@ -97,6 +105,7 @@ def eval_clip_hf_vlm(
     annotation: Path = typer.Option(..., exists=True, readable=True, help="KABR split annotation file."),
     image_root: Path = typer.Option(..., exists=True, file_okay=False, help="Root KABR image dir."),
     classes: Path = typer.Option(..., exists=True, readable=True, help="KABR classes.json path."),
+    dataset: str = typer.Option("kabr", help="Dataset name: kabr or baboonland."),
     model_id: str = typer.Option(..., help="Hugging Face VLM model id."),
     task: str = typer.Option("behavior", help="One of: behavior, species, joint."),
     prompt_mode: str = typer.Option("plain", help="One of: plain, structured."),
@@ -107,7 +116,7 @@ def eval_clip_hf_vlm(
     resume: bool = typer.Option(False, help="Resume from an existing partial JSONL output."),
     output: Path = typer.Option(..., help="Prediction JSONL output path."),
 ) -> None:
-    rows = read_kabr_frame_annotations(annotation, image_root, classes)
+    rows = read_charades_frame_annotations(annotation, image_root, classes, dataset=dataset)
     summary = evaluate_clip_records(
         rows=rows,
         model_id=model_id,
@@ -119,6 +128,7 @@ def eval_clip_hf_vlm(
         output_path=output,
         prompt_mode=prompt_mode,
         resume=resume,
+        dataset=dataset,
     )
     typer.echo(
         "evaluated="
@@ -132,6 +142,7 @@ def eval_finetuned_hf_vlm(
     annotation: Path = typer.Option(..., exists=True, readable=True, help="KABR split annotation file."),
     image_root: Path = typer.Option(..., exists=True, file_okay=False, help="Root KABR image dir."),
     classes: Path = typer.Option(..., exists=True, readable=True, help="KABR classes.json path."),
+    dataset: str = typer.Option("kabr", help="Dataset name: kabr or baboonland."),
     model_id: str = typer.Option(..., help="Base Hugging Face VLM model id."),
     adapter_path: Path = typer.Option(..., exists=True, help="LoRA adapter directory."),
     task: str = typer.Option("species", help="Currently supports species or behavior."),
@@ -139,6 +150,7 @@ def eval_finetuned_hf_vlm(
     max_samples: int | None = typer.Option(None, min=1, help="Optional number of clips to evaluate."),
     seed: int = typer.Option(42, help="Random seed for clip sampling."),
     max_new_tokens: int = typer.Option(8, min=1, help="Generation length."),
+    max_frames_per_clip: int = typer.Option(8, min=1, help="Ordered frames sampled per clip."),
     output: Path = typer.Option(..., help="Prediction JSONL output path."),
 ) -> None:
     if task not in {"species", "behavior"}:
@@ -154,7 +166,9 @@ def eval_finetuned_hf_vlm(
         max_samples=max_samples,
         seed=seed,
         max_new_tokens=max_new_tokens,
+        max_frames_per_clip=max_frames_per_clip,
         prompt_mode=prompt_mode,
+        dataset=dataset,
     )
     typer.echo(
         "evaluated="
@@ -170,15 +184,48 @@ def score_predictions(
     metrics_output: Path = typer.Option(..., help="Metrics JSON output."),
     confusion_output: Path = typer.Option(..., help="Confusion CSV output."),
     task: str | None = typer.Option(None, help="Optional task override for non-VLM schemas, e.g. behavior."),
+    classes_path: Path | None = typer.Option(None, exists=True, readable=True, help="Optional classes.json for label ordering."),
 ) -> None:
     rows = load_prediction_records(predictions)
-    metrics = score_prediction_records(rows, task=task)
+    labels_override = ordered_label_names(classes_path) if classes_path is not None else None
+    metrics = score_prediction_records(rows, task=task, labels_override=labels_override)
     write_metrics(metrics_output, metrics)
     write_confusion_csv(confusion_output, metrics)
     typer.echo(
         f"evaluated={metrics['evaluated']} parsed={metrics['parsed']} "
         f"accuracy={metrics['accuracy']:.4f} macro_f1={metrics['macro_f1']:.4f}"
     )
+
+
+@app.command("prepare-charades-clip-manifests")
+def prepare_charades_clip_manifests(
+    annotation_dir: Path = typer.Option(..., exists=True, file_okay=False, help="Directory containing train.csv and val.csv."),
+    image_root: Path = typer.Option(..., exists=True, file_okay=False, help="Root image directory."),
+    classes: Path = typer.Option(..., exists=True, readable=True, help="classes.json path."),
+    dataset: str = typer.Option("kabr", help="Dataset name: kabr or baboonland."),
+    output_dir: Path = typer.Option(..., help="Output directory for train/val manifests."),
+    max_clips: int = typer.Option(0, min=0, help="Optional clip cap per split."),
+    copy_val_to_test: bool = typer.Option(False, help="Copy val.jsonl to test.jsonl."),
+) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for split_name in ("train", "val"):
+        clips = convert_charades_split_to_clip_manifests(
+            annotation_path=annotation_dir / f"{split_name}.csv",
+            image_root=image_root,
+            classes_path=classes,
+            dataset=dataset,
+        )
+        if max_clips > 0:
+            clips = clips[:max_clips]
+        write_clip_manifest_jsonl(output_dir / f"{split_name}.jsonl", clips)
+    import json
+
+    with (output_dir / "classes.json").open("w", encoding="utf-8") as handle:
+        json.dump({label: index for index, label in enumerate(ordered_label_names(classes))}, handle, indent=2, ensure_ascii=True)
+        handle.write("\n")
+    if copy_val_to_test:
+        (output_dir / "test.jsonl").write_text((output_dir / "val.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
+    typer.echo(f"Wrote manifests to {output_dir}")
 
 
 @app.command("train-frozen-features")

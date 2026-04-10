@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -27,4 +27,4 @@ class VideoQAExample(BaseModel):
     task: Literal["animal_recognition", "action_recognition", "joint_animal_action_recognition"]
     prompt: str
     answer: str
-    metadata: dict[str, str | float | int | None] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)

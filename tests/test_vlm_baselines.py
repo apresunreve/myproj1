@@ -1,4 +1,4 @@
-from kabr_vlm.vlm_baselines import parse_prediction
+from kabr_vlm.vlm_baselines import build_prompt, parse_prediction
 
 
 def test_parse_behavior_prediction_from_json() -> None:
@@ -20,3 +20,25 @@ def test_parse_behavior_prediction_from_structured_output() -> None:
         'recognize(entity_type="action", value="Auto-Groom")',
     )
     assert pred == {"behavior": "Auto-Groom"}
+
+
+def test_parse_behavior_prediction_with_custom_baboon_labels() -> None:
+    pred = parse_prediction(
+        "behavior",
+        '{"behavior": "Mutual Grooming"}',
+        behavior_labels=["Walking/Running", "Mutual Grooming", "Sleeping"],
+    )
+    assert pred == {"behavior": "Mutual Grooming"}
+
+
+def test_build_prompt_uses_dataset_specific_behavior_labels() -> None:
+    prompt = build_prompt(
+        "behavior",
+        unit="clip",
+        prompt_mode="label",
+        dataset="baboonland",
+        behavior_labels=["Walking/Running", "Sleeping"],
+    )
+    assert "baboonland dataset" in prompt
+    assert "Walking/Running" in prompt
+    assert "Sleeping" in prompt

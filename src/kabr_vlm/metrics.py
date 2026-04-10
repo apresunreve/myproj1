@@ -26,6 +26,22 @@ def task_labels(task: str) -> list[str]:
     raise ValueError(f"Unsupported task: {task}")
 
 
+def infer_task_labels(rows: list[dict], task: str) -> list[str]:
+    for row in rows:
+        label_space = row.get("label_space")
+        if isinstance(label_space, dict):
+            if task == "behavior" and isinstance(label_space.get("behavior"), list) and label_space["behavior"]:
+                return list(label_space["behavior"])
+            if task == "species" and isinstance(label_space.get("species"), list) and label_space["species"]:
+                return list(label_space["species"])
+            if task == "joint":
+                species = label_space.get("species")
+                behavior = label_space.get("behavior")
+                if isinstance(species, list) and isinstance(behavior, list) and species and behavior:
+                    return [f"{species_label} | {behavior_label}" for species_label in species for behavior_label in behavior]
+    return task_labels(task)
+
+
 def normalize_prediction_row(row: dict, task: str | None = None) -> dict:
     if "gold" in row and "prediction" in row and "task" in row:
         return row
@@ -68,6 +84,8 @@ def normalize_prediction_row(row: dict, task: str | None = None) -> dict:
         "gold_label_id",
         "pred_label_id",
         "logits",
+        "label_space",
+        "dataset",
     ):
         if key in row:
             normalized[key] = row[key]
@@ -86,13 +104,13 @@ def label_for_payload(task: str, payload: dict[str, str | None]) -> str | None:
     return f"{species} | {behavior}"
 
 
-def score_prediction_records(rows: list[dict], task: str | None = None) -> dict:
+def score_prediction_records(rows: list[dict], task: str | None = None, labels_override: list[str] | None = None) -> dict:
     if not rows:
         raise ValueError("No prediction rows supplied.")
 
     normalized_rows = [normalize_prediction_row(row, task=task) for row in rows]
     resolved_task = normalized_rows[0]["task"]
-    labels = task_labels(resolved_task)
+    labels = labels_override or infer_task_labels(normalized_rows, resolved_task)
     gold_counts = Counter()
     pred_counts = Counter()
     tp_counts = Counter()

@@ -13,6 +13,8 @@ class PaperRun(BaseModel):
     family: str
     method: str
     model: str
+    train_dataset: str | None = None
+    test_dataset: str | None = None
     output_format: str = "plain"
     metrics_path: Path
     training_metrics_path: Path | None = None
@@ -25,6 +27,7 @@ class PaperRun(BaseModel):
 class PaperManifest(BaseModel):
     runs: list[PaperRun] = Field(default_factory=list)
     task_filter: str | None = None
+    skip_missing_metrics: bool = False
 
 
 def load_paper_manifest(path: str | Path) -> PaperManifest:
@@ -50,14 +53,14 @@ def _load_json(path: Path | None) -> dict[str, Any]:
 
 def _write_markdown_table(path: Path, rows: list[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8") as handle:
-        handle.write("| run_name | task | family | method | model | accuracy | macro_f1 | parse_rate | runtime_hours | trainable_params | checkpoint_size_mb |\n")
-        handle.write("| --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+        handle.write("| run_name | train_dataset | test_dataset | task | family | method | model | accuracy | macro_f1 | parse_rate | runtime_hours | trainable_params | checkpoint_size_mb |\n")
+        handle.write("| --- | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |\n")
         for row in rows:
             runtime_hours = "" if row["runtime_hours"] is None else f"{row['runtime_hours']:.2f}"
             trainable_params = "" if row["trainable_params"] is None else row["trainable_params"]
             checkpoint_size_mb = "" if row["checkpoint_size_mb"] is None else f"{row['checkpoint_size_mb']:.2f}"
             handle.write(
-                f"| {row['run_name']} | {row['task']} | {row['family']} | {row['method']} | {row['model']} | "
+                f"| {row['run_name']} | {row['train_dataset']} | {row['test_dataset']} | {row['task']} | {row['family']} | {row['method']} | {row['model']} | "
                 f"{row['accuracy']:.4f} | {row['macro_f1']:.4f} | {row['parse_rate']:.4f} | "
                 f"{runtime_hours} | {trainable_params} | {checkpoint_size_mb} |\n"
             )
@@ -104,6 +107,49 @@ def _write_method_summary(path: Path, rows: list[dict[str, Any]]) -> None:
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def _write_transfer_summary(path: Path, transfer_rows: list[dict[str, Any]]) -> None:
+    if not transfer_rows:
+        path.write_text("", encoding="utf-8")
+        return
+
+    best_transfer = max(transfer_rows, key=lambda row: row["macro_f1"], default=None)
+    best_zero_shot = max((row for row in transfer_rows if row["method"] == "zero-shot"), key=lambda row: row["macro_f1"], default=None)
+    best_adapted = max((row for row in transfer_rows if row["family"] == "vlm" and row["method"] != "zero-shot"), key=lambda row: row["macro_f1"], default=None)
+    best_x3d = max((row for row in transfer_rows if row["family"] == "x3d"), key=lambda row: row["macro_f1"], default=None)
+
+    lines = ["# Transfer Summary", ""]
+    if best_transfer is not None:
+        lines.append(
+            f"Best cross-dataset result: `{best_transfer['run_name']}` "
+            f"({best_transfer['train_dataset']} -> {best_transfer['test_dataset']}) with "
+            f"accuracy `{best_transfer['accuracy']:.4f}` and macro F1 `{best_transfer['macro_f1']:.4f}`."
+        )
+    if best_zero_shot is not None and best_adapted is not None:
+        lines.append(
+            f"Best zero-shot transfer vs best adapted transfer: `{best_zero_shot['run_name']}` "
+            f"macro F1 `{best_zero_shot['macro_f1']:.4f}` vs `{best_adapted['run_name']}` "
+            f"macro F1 `{best_adapted['macro_f1']:.4f}`."
+        )
+    if best_x3d is not None and best_adapted is not None:
+        lines.append(
+            f"Best X3D transfer vs best adapted VLM transfer: `{best_x3d['run_name']}` "
+            f"macro F1 `{best_x3d['macro_f1']:.4f}` vs `{best_adapted['run_name']}` "
+            f"macro F1 `{best_adapted['macro_f1']:.4f}`."
+        )
+    lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _transfer_key(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    return (
+        row["family"],
+        row["method"],
+        row["model"],
+        row["output_format"],
+        row["train_dataset"],
+    )
+
+
 def aggregate_paper_results(manifest_path: str | Path, output_dir: str | Path) -> dict[str, Path]:
     manifest = load_paper_manifest(manifest_path)
     destination = Path(output_dir)
@@ -118,7 +164,11 @@ def aggregate_paper_results(manifest_path: str | Path, output_dir: str | Path) -
         filtered_runs = [run for run in manifest.runs if run.task == manifest.task_filter]
 
     for run in filtered_runs:
+        if manifest.skip_missing_metrics and not run.metrics_path.exists():
+            continue
         metrics = _load_json(run.metrics_path)
+        if not metrics:
+            continue
         training_metrics = _load_json(run.training_metrics_path)
         evaluated = metrics.get("evaluated", 0)
         parsed = metrics.get("parsed", 0)
@@ -136,6 +186,8 @@ def aggregate_paper_results(manifest_path: str | Path, output_dir: str | Path) -
                 "family": run.family,
                 "method": run.method,
                 "model": run.model,
+                "train_dataset": run.train_dataset or run.test_dataset or "unspecified",
+                "test_dataset": run.test_dataset or run.train_dataset or "unspecified",
                 "run_name": run.name,
                 "output_format": run.output_format,
                 "accuracy": metrics.get("accuracy", 0.0),
@@ -158,6 +210,8 @@ def aggregate_paper_results(manifest_path: str | Path, output_dir: str | Path) -
                     "family": run.family,
                     "method": run.method,
                     "model": run.model,
+                    "train_dataset": run.train_dataset or run.test_dataset or "unspecified",
+                    "test_dataset": run.test_dataset or run.train_dataset or "unspecified",
                     "label": label,
                     "precision": label_metrics.get("precision", 0.0),
                     "recall": label_metrics.get("recall", 0.0),
@@ -172,12 +226,73 @@ def aggregate_paper_results(manifest_path: str | Path, output_dir: str | Path) -
                 "family": run.family,
                 "method": run.method,
                 "model": run.model,
+                "train_dataset": run.train_dataset,
+                "test_dataset": run.test_dataset,
                 "output_format": run.output_format,
                 "metrics_path": str(run.metrics_path),
                 "training_metrics_path": str(run.training_metrics_path) if run.training_metrics_path else None,
                 "checkpoint_path": str(run.checkpoint_path) if run.checkpoint_path else None,
             }
         )
+
+    transfer_rows = [
+        row
+        for row in main_rows
+        if row["train_dataset"] not in {"zero-shot", "unspecified"}
+        and row["test_dataset"] not in {"zero-shot", "unspecified"}
+        and row["train_dataset"] != row["test_dataset"]
+    ]
+    in_domain_by_key = {
+        _transfer_key(row): row
+        for row in main_rows
+        if row["train_dataset"] not in {"zero-shot", "unspecified"}
+        and row["test_dataset"] not in {"zero-shot", "unspecified"}
+        and row["train_dataset"] == row["test_dataset"]
+    }
+    transfer_gap_rows = []
+    per_class_by_run = {}
+    for row in per_class_rows:
+        per_class_by_run.setdefault(row["run_name"], {})[row["label"]] = row
+
+    transfer_per_class_rows = []
+    for row in transfer_rows:
+        baseline = in_domain_by_key.get(_transfer_key(row))
+        transfer_gap_rows.append(
+            {
+                "run_name": row["run_name"],
+                "family": row["family"],
+                "method": row["method"],
+                "model": row["model"],
+                "train_dataset": row["train_dataset"],
+                "test_dataset": row["test_dataset"],
+                "transfer_accuracy": row["accuracy"],
+                "transfer_macro_f1": row["macro_f1"],
+                "in_domain_accuracy": None if baseline is None else baseline["accuracy"],
+                "in_domain_macro_f1": None if baseline is None else baseline["macro_f1"],
+                "accuracy_gap": None if baseline is None else baseline["accuracy"] - row["accuracy"],
+                "macro_f1_gap": None if baseline is None else baseline["macro_f1"] - row["macro_f1"],
+            }
+        )
+        if baseline is None:
+            continue
+        transfer_per_class = per_class_by_run.get(row["run_name"], {})
+        baseline_per_class = per_class_by_run.get(baseline["run_name"], {})
+        for label, label_metrics in transfer_per_class.items():
+            baseline_metrics = baseline_per_class.get(label)
+            transfer_per_class_rows.append(
+                {
+                    "run_name": row["run_name"],
+                    "train_dataset": row["train_dataset"],
+                    "test_dataset": row["test_dataset"],
+                    "family": row["family"],
+                    "method": row["method"],
+                    "model": row["model"],
+                    "label": label,
+                    "transfer_f1": label_metrics["f1"],
+                    "in_domain_f1": None if baseline_metrics is None else baseline_metrics["f1"],
+                    "f1_gap": None if baseline_metrics is None else baseline_metrics["f1"] - label_metrics["f1"],
+                }
+            )
 
     main_csv = destination / "main_table.csv"
     with main_csv.open("w", encoding="utf-8", newline="") as handle:
@@ -193,21 +308,52 @@ def aggregate_paper_results(manifest_path: str | Path, output_dir: str | Path) -
             writer.writeheader()
             writer.writerows(per_class_rows)
 
+    transfer_gap_csv = destination / "transfer_gaps.csv"
+    with transfer_gap_csv.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(transfer_gap_rows[0].keys()) if transfer_gap_rows else [])
+        if transfer_gap_rows:
+            writer.writeheader()
+            writer.writerows(transfer_gap_rows)
+
+    transfer_per_class_csv = destination / "transfer_per_class_f1.csv"
+    with transfer_per_class_csv.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(transfer_per_class_rows[0].keys()) if transfer_per_class_rows else [])
+        if transfer_per_class_rows:
+            writer.writeheader()
+            writer.writerows(transfer_per_class_rows)
+
     main_md = destination / "main_table.md"
     _write_markdown_table(main_md, main_rows)
 
     method_summary_md = destination / "method_summary.md"
     _write_method_summary(method_summary_md, main_rows)
 
+    transfer_summary_md = destination / "transfer_summary.md"
+    _write_transfer_summary(transfer_summary_md, transfer_rows)
+
     summary_json = destination / "summary.json"
     with summary_json.open("w", encoding="utf-8") as handle:
-        json.dump({"task_filter": manifest.task_filter, "runs": summary_rows}, handle, indent=2, ensure_ascii=True)
+        json.dump(
+            {
+                "task_filter": manifest.task_filter,
+                "skip_missing_metrics": manifest.skip_missing_metrics,
+                "runs": summary_rows,
+                "num_rows": len(main_rows),
+                "num_transfer_rows": len(transfer_rows),
+            },
+            handle,
+            indent=2,
+            ensure_ascii=True,
+        )
         handle.write("\n")
 
     return {
         "main_table_csv": main_csv,
         "main_table_md": main_md,
         "per_class_csv": per_class_csv,
+        "transfer_gap_csv": transfer_gap_csv,
+        "transfer_per_class_csv": transfer_per_class_csv,
         "summary_json": summary_json,
         "method_summary_md": method_summary_md,
+        "transfer_summary_md": transfer_summary_md,
     }
