@@ -1,0 +1,18 @@
+Model,Dataset,Acc,Macro F1,Train method
+X3D-L,KABR-Clip,0.7968,0.5199,from scratch
+InternVL2-2B,KABR-Clip,0.3273,0.0616,zero-shot
+Qwen2.5VL-3B,KABR-Clip,0.5491,0.2709,zero-shot
+Qwen2.5VL-7B,KABR-Clip,0.6260,0.3272,zero-shot
+Qwen2.5VL-3B,KABR-Clip,0.8534,0.4846,lora 
+Qwen2.5VL-7B,KABR-Clip,0.8475,0.5034,lora 
+Gemma3-4B,KABR-Clip,0.5486,0.2258,zero-shot
+Gemma3-4B,KABR-Clip,0.8644,0.5145,lora 
+LLaVA OneVision Qwen2 7B,KABR-Clip,0.5813,0.2544,zero-shot
+LLaVA OneVision Qwen2 7B,KABR-Clip,0.8631,0.5231,lora 
+MobileVLM-1.7B,KABR-Clip,0.3273,0.0616,zero-shot
+MobileVLM-1.7B,KABR-Clip,0.7822,0.4307,lora 
+LLaVA OneVision Qwen2 0.5B,KABR-Clip,0.3072,0.1185,zero-shot
+LLaVA OneVision Qwen2 0.5B,KABR-Clip,0.8189,0.4467,lora 
+Qwen2.5-VL-3B,Baboonland-Clip,0.2428,0.0804,zero-shot
+Qwen2.5-VL-7B,Baboonland-Clip,0.3287,0.1434,zero-shot
+LLaVA OneVision Qwen2 7B,Baboonland-Clip,0.3382,0.0775,zero-sho
