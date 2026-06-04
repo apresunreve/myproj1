@@ -1,0 +1,5 @@
+job_name	launcher_script	resource_tier	skip_if_metrics_exists
+mobilevlm_v2_1_7b_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_mobilevlm_v2_1_7b_behavior_lora_full.sh	medium	/scratch/general/vast/j.yan/myproj1/artifacts/runs/mobilevlm_v2_1_7b_behavior_lora_full/behavior_val_predictions.metrics.json
+gemma3_4b_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_gemma3_4b_behavior_lora_full.sh	medium	/scratch/general/vast/j.yan/myproj1/artifacts/runs/gemma3_4b_behavior_lora_full/behavior_val_predictions.metrics.json
+llava_onevision_1_5_4b_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_llava_onevision_1_5_4b_behavior_lora_full.sh	medium	/scratch/general/vast/j.yan/myproj1/artifacts/runs/llava_onevision_1_5_4b_behavior_lora_full/behavior_val_predictions.metrics.json
+phi35_vision_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_phi35_vision_behavior_lora_full.sh	medium	/scratch/general/vast/j.yan/myproj1/artifacts/runs/phi35_vision_behavior_lora_full/behavior_val_predictions.metrics.json

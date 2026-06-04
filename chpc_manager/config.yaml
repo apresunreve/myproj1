@@ -1,0 +1,77 @@
+# CHPC Job Manager config — dedicated to VLM behavior recognition experiments
+# Project: /scratch/general/vast/j.yan/myproj1
+# DB is separate from NAS experiments to avoid cross-project contention.
+# The manager daemon for this DB is launched manually by the user.
+
+username: u1320844
+
+database_path: /uufs/chpc.utah.edu/common/home/u1320844/task_dbs/vlm_behavior.db
+
+# Shared task_types with NAS; the three new VLM task types are appended there.
+task_types_config: /scratch/general/vast/j.yan/NAS/task_types.yaml
+
+partitions:
+  - name: notchpeak-gpu-guest
+    cluster: notchpeak
+    account: owner-gpu-guest
+    qos: notchpeak-gpu-guest
+    max_walltime: "12:00:00"
+    target_pending_jobs: 2
+    exclude_nodes:
+      - notch458
+      - notch366
+
+  - name: granite-gpu-guest
+    cluster: granite
+    account: sadayappan
+    qos: granite-gpu-guest
+    max_walltime: "12:00:00"
+    target_pending_jobs: 2
+    exclude_nodes:
+      - grn025
+      - grn026
+      - grn027
+      - grn028
+      - grn029
+      - grn030
+      - grn031
+      - grn032
+      - grn066
+      - grn067
+      - grn080
+
+  - name: granite-gpu
+    cluster: granite
+    account: sadayappan
+    qos: granite-gpu-freecycle
+    max_walltime: "12:00:00"
+    target_pending_jobs: 2
+    exclude_nodes:
+      - grn025
+      - grn026
+      - grn027
+      - grn028
+      - grn029
+      - grn030
+      - grn031
+      - grn032
+      - grn066
+      - grn067
+      - grn080
+
+  - name: soc-gpu-np
+    cluster: notchpeak
+    account: soc-gpu-np
+    qos: soc-gpu-np
+    max_walltime: "12:00:00"
+    target_pending_jobs: 1
+    exclude_nodes:
+      - notch458
+      - notch366
+
+manager:
+  check_interval: 120
+  log_file: /scratch/general/nfs1/u1320844/task_logs/manager_vlm_behavior.log
+
+task_executor:
+  log_dir: /scratch/general/nfs1/u1320844/task_logs

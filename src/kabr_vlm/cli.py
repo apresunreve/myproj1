@@ -20,7 +20,7 @@ from kabr_vlm.metrics import (
 )
 from kabr_vlm.reporting import aggregate_paper_results
 from kabr_vlm.config import load_config
-from kabr_vlm.training.qwen_tasks import evaluate_hf_adapter
+from kabr_vlm.training.qwen_tasks import evaluate_hf_adapter, evaluate_hf_full_model
 from kabr_vlm.vlm_baselines import evaluate_clip_records, evaluate_hf_vlm_on_kabr
 
 app = typer.Typer(add_completion=False, help="Utilities for KABR VLM workflows.")
@@ -74,6 +74,10 @@ def eval_frame_hf_vlm(
     max_frames_per_clip: int = typer.Option(1, min=1, help="Ignored for frame evaluation; accepted for matrix compatibility."),
     seed: int = typer.Option(42, help="Random seed for row sampling."),
     max_new_tokens: int = typer.Option(64, min=1, help="Generation length."),
+    attention_experiment: str | None = typer.Option(
+        None,
+        help="Optional experimental attention backend, e.g. mla.",
+    ),
     resume: bool = typer.Option(False, help="Resume from an existing partial JSONL output."),
     output: Path = typer.Option(..., help="Prediction JSONL output path."),
 ) -> None:
@@ -92,6 +96,7 @@ def eval_frame_hf_vlm(
         output_path=output,
         prompt_mode=prompt_mode,
         resume=resume,
+        attention_experiment=attention_experiment,
     )
     typer.echo(
         "evaluated="
@@ -111,8 +116,13 @@ def eval_clip_hf_vlm(
     prompt_mode: str = typer.Option("plain", help="One of: plain, structured."),
     max_samples: int = typer.Option(128, min=1, help="Number of clips to evaluate."),
     max_frames_per_clip: int = typer.Option(8, min=1, help="Ordered frames sampled per clip."),
+    use_all_frames: bool = typer.Option(False, help="Use every frame in each clip instead of subsampling."),
     seed: int = typer.Option(42, help="Random seed for clip sampling."),
     max_new_tokens: int = typer.Option(64, min=1, help="Generation length."),
+    attention_experiment: str | None = typer.Option(
+        None,
+        help="Optional experimental attention backend, e.g. mla.",
+    ),
     resume: bool = typer.Option(False, help="Resume from an existing partial JSONL output."),
     output: Path = typer.Option(..., help="Prediction JSONL output path."),
 ) -> None:
@@ -124,11 +134,12 @@ def eval_clip_hf_vlm(
         max_samples=max_samples,
         seed=seed,
         max_new_tokens=max_new_tokens,
-        max_frames_per_clip=max_frames_per_clip,
+        max_frames_per_clip=None if use_all_frames else max_frames_per_clip,
         output_path=output,
         prompt_mode=prompt_mode,
         resume=resume,
         dataset=dataset,
+        attention_experiment=attention_experiment,
     )
     typer.echo(
         "evaluated="
@@ -151,6 +162,10 @@ def eval_finetuned_hf_vlm(
     seed: int = typer.Option(42, help="Random seed for clip sampling."),
     max_new_tokens: int = typer.Option(8, min=1, help="Generation length."),
     max_frames_per_clip: int = typer.Option(8, min=1, help="Ordered frames sampled per clip."),
+    attention_experiment: str | None = typer.Option(
+        None,
+        help="Optional experimental attention backend, e.g. mla.",
+    ),
     output: Path = typer.Option(..., help="Prediction JSONL output path."),
 ) -> None:
     if task not in {"species", "behavior"}:
@@ -169,6 +184,44 @@ def eval_finetuned_hf_vlm(
         max_frames_per_clip=max_frames_per_clip,
         prompt_mode=prompt_mode,
         dataset=dataset,
+        attention_experiment=attention_experiment,
+    )
+    typer.echo(
+        "evaluated="
+        f"{summary['evaluated']} parsed={summary['parsed']} "
+        f"correct={summary['correct']} accuracy={summary['accuracy']:.4f} "
+        f"macro_f1={summary['macro_f1']:.4f}"
+    )
+
+
+@app.command("eval-full-hf-vlm")
+def eval_full_hf_vlm(
+    annotation: Path = typer.Option(..., exists=True, readable=True, help="KABR split annotation file."),
+    image_root: Path = typer.Option(..., exists=True, file_okay=False, help="Root KABR image dir."),
+    classes: Path = typer.Option(..., exists=True, readable=True, help="KABR classes.json path."),
+    model_id: str = typer.Option(..., help="Original base Hugging Face VLM model id."),
+    checkpoint_path: Path = typer.Option(..., exists=True, help="Full fine-tuned checkpoint directory."),
+    task: str = typer.Option("species", help="Currently supports species or behavior."),
+    prompt_mode: str = typer.Option("label", help="One of: label, structured."),
+    max_samples: int | None = typer.Option(None, min=1, help="Optional number of clips to evaluate."),
+    seed: int = typer.Option(42, help="Random seed for clip sampling."),
+    max_new_tokens: int = typer.Option(8, min=1, help="Generation length."),
+    output: Path = typer.Option(..., help="Prediction JSONL output path."),
+) -> None:
+    if task not in {"species", "behavior"}:
+        raise typer.BadParameter("This full-checkpoint evaluator currently supports only task=species or behavior.")
+    summary = evaluate_hf_full_model(
+        annotation_path=annotation,
+        image_root=image_root,
+        classes_path=classes,
+        model_id=model_id,
+        checkpoint_path=checkpoint_path,
+        task=task,
+        output_path=output,
+        max_samples=max_samples,
+        seed=seed,
+        max_new_tokens=max_new_tokens,
+        prompt_mode=prompt_mode,
     )
     typer.echo(
         "evaluated="
@@ -299,6 +352,108 @@ def aggregate_results(
     typer.echo(
         f"wrote main_table={outputs['main_table_csv']} per_class={outputs['per_class_csv']} summary={outputs['summary_json']}"
     )
+
+
+@app.command("bench-latency")
+def bench_latency(
+    annotation: Path = typer.Option(..., exists=True, readable=True, help="Val annotation CSV."),
+    image_root: Path = typer.Option(..., exists=True, file_okay=False, help="Root image directory."),
+    classes: Path = typer.Option(..., exists=True, readable=True, help="classes.json path."),
+    model_id: str = typer.Option(..., help="HuggingFace model id."),
+    adapter_path: Path = typer.Option(None, exists=True, help="Optional LoRA adapter directory (omit for zero-shot)."),
+    dataset: str = typer.Option("kabr", help="Dataset name: kabr or baboonland."),
+    task: str = typer.Option("behavior", help="Task name passed to the prompt builder."),
+    n_clips: int = typer.Option(100, min=1, help="Number of clips to time (after warmup)."),
+    warmup_clips: int = typer.Option(5, min=0, help="Clips to run before timing starts."),
+    max_frames_per_clip: int = typer.Option(8, min=1, help="Frames sampled per clip."),
+    seed: int = typer.Option(42, help="Random seed for clip sampling."),
+    output: Path = typer.Option(..., help="Path for per-clip JSONL predictions."),
+    summary_output: Path = typer.Option(None, help="Optional path for latency summary JSON (default: <output>.latency.json)."),
+) -> None:
+    """Benchmark inference latency (ms/clip) for a VLM on KABR or Baboonland val clips.
+
+    Runs --warmup-clips silent clips first to heat the GPU, then times --n-clips clips.
+    Writes per-clip latency_ms into the prediction JSONL and a compact summary JSON.
+    """
+    import json
+    import statistics
+    import torch
+    from kabr_vlm.vlm_baselines import (
+        evaluate_records,
+        build_prompt,
+        load_hf_pipeline,
+        load_hf_adapter_generator,
+    )
+    from kabr_vlm.data.kabr_frames import (
+        read_kabr_frame_annotations,
+        group_frame_records_into_clips,
+        sample_records,
+    )
+
+    rows = read_kabr_frame_annotations(annotation, image_root, classes)
+    clips = group_frame_records_into_clips(rows)
+    sample = sample_records(clips, max_samples=n_clips + warmup_clips, seed=seed)
+
+    if adapter_path is not None:
+        generator = load_hf_adapter_generator(model_id=model_id, adapter_path=adapter_path)
+        mode_label = "lora"
+    else:
+        generator = load_hf_pipeline(model_id)
+        mode_label = "zero-shot"
+
+    prompt = build_prompt(task, unit="clip", prompt_mode="label" if adapter_path else "plain")
+
+    summary = evaluate_records(
+        records=sample,
+        generator=generator,
+        prompt=prompt,
+        task=task,
+        model_id=model_id,
+        max_new_tokens=8,
+        output_path=output,
+        unit="clip",
+        max_frames_per_clip=max_frames_per_clip,
+        warmup_clips=warmup_clips,
+    )
+
+    peak_gpu_mb = (
+        round(torch.cuda.max_memory_allocated() / 1024 / 1024, 1)
+        if torch.cuda.is_available()
+        else None
+    )
+
+    latency_summary = {
+        "model_id": model_id,
+        "adapter_path": str(adapter_path) if adapter_path else None,
+        "mode": mode_label,
+        "dataset": dataset,
+        "task": task,
+        "n_clips": summary["n_timed"],
+        "warmup_clips": warmup_clips,
+        "max_frames_per_clip": max_frames_per_clip,
+        "accuracy": round(summary["accuracy"], 4),
+        "latency_median_ms": summary.get("latency_median_ms"),
+        "latency_p90_ms": summary.get("latency_p90_ms"),
+        "latency_mean_ms": summary.get("latency_mean_ms"),
+        "clips_per_sec": round(1000.0 / summary["latency_median_ms"], 2) if summary.get("latency_median_ms") else None,
+        "peak_gpu_mb": peak_gpu_mb,
+        "predictions_path": str(output),
+    }
+
+    summary_path = summary_output or output.with_suffix(".latency.json")
+    Path(summary_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json.dump(latency_summary, f, indent=2)
+
+    typer.echo(
+        f"model={model_id}  mode={mode_label}  dataset={dataset}  "
+        f"n={latency_summary['n_clips']}  "
+        f"median={latency_summary['latency_median_ms']} ms  "
+        f"p90={latency_summary['latency_p90_ms']} ms  "
+        f"acc={latency_summary['accuracy']:.4f}  "
+        f"gpu_mb={peak_gpu_mb}"
+    )
+    typer.echo(f"summary → {summary_path}")
 
 
 if __name__ == "__main__":

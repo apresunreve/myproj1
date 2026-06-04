@@ -1,0 +1,5 @@
+job_name	launcher_script	resource_tier	skip_if_metrics_exists
+qwen25vl7b_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_qwen25vl7b_behavior_lora_full.sh	large	/scratch/general/vast/j.yan/myproj1/artifacts/runs/qwen25vl7b_behavior_lora_full/behavior_val_predictions.metrics.json
+llava_onevision_qwen2_7b_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_llava_onevision_qwen2_7b_behavior_lora_full.sh	large	/scratch/general/vast/j.yan/myproj1/artifacts/runs/llava_onevision_qwen2_7b_behavior_lora_full/behavior_val_predictions.metrics.json
+llava_v1_6_mistral_7b_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_llava_v1_6_mistral_7b_behavior_lora_full.sh	large	/scratch/general/vast/j.yan/myproj1/artifacts/runs/llava_v1_6_mistral_7b_behavior_lora_full/behavior_val_predictions.metrics.json
+idefics3_8b_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_idefics3_8b_behavior_lora_full.sh	large	/scratch/general/vast/j.yan/myproj1/artifacts/runs/idefics3_8b_behavior_lora_full/behavior_val_predictions.metrics.json

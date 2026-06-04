@@ -3,7 +3,7 @@ seed: 42
 
 data:
   train_file: data/processed/kabr_behavior_train.jsonl
-  val_file: data/processed/kabr_behavior_val.jsonl
+  val_file: data/processed/kabr_behavior_val_cleaned.jsonl
   video_root:
   task_mode: action_recognition
   input_type: clip
@@ -36,7 +36,8 @@ training:
   gradient_checkpointing: true
   bf16: true
   fp16: false
-  save_strategy: epoch
+  save_strategy: steps
+  save_steps: 250
   eval_strategy: epoch
   save_total_limit: 2
   logging_steps: 10

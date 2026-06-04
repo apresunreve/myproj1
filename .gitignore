@@ -12,4 +12,9 @@ data/
 artifacts/
 logs/
 wandb/
+*_file_check/
+baboonland_files/
+x3d_ckpts/
+*.zip
+*.pptx
 .DS_Store

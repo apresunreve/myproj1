@@ -1,0 +1,42 @@
+project_name: kabr-vlm-behavior-full-sft-smoke
+seed: 42
+data:
+  train_file: data/processed/kabr_behavior_train.jsonl
+  val_file: data/processed/kabr_behavior_val_cleaned.jsonl
+  video_root:
+  task_mode: action_recognition
+  input_type: clip
+  max_frames_per_clip: 8
+  max_train_samples: 32
+  max_val_samples: 16
+model:
+  name: HuggingFaceM4/Idefics3-8B-Llama3
+  processor_id:
+  adapter_path:
+  max_frames: 8
+  precision: bf16
+  prompt_mode: label
+  output_format: plain
+training:
+  output_dir: artifacts/smoke/idefics3_8b_behavior_full_sft_smoke/checkpoint
+  method: full
+  epochs: 1
+  batch_size: 1
+  eval_batch_size: 1
+  learning_rate: 1.0e-5
+  gradient_accumulation_steps: 8
+  weight_decay: 0.0
+  max_seq_length: 2048
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  gradient_checkpointing: true
+  bf16: true
+  fp16: false
+  save_strategy: steps
+  save_steps: 25
+  eval_strategy: epoch
+  save_total_limit: 2
+  logging_steps: 10
+  seed: 42
+  dry_run: false

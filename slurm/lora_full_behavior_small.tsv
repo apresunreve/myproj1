@@ -1,0 +1,3 @@
+job_name	launcher_script	resource_tier	skip_if_metrics_exists
+llava_onevision_qwen2_0_5b_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_llava_onevision_qwen2_0_5b_behavior_lora_full.sh	small	/scratch/general/vast/j.yan/myproj1/artifacts/runs/llava_onevision_qwen2_0_5b_behavior_lora_full/behavior_val_predictions.metrics.json
+smolvlm_256m_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_smolvlm_256m_behavior_lora_full.sh	small	/scratch/general/vast/j.yan/myproj1/artifacts/runs/smolvlm_256m_behavior_lora_full/behavior_val_predictions.metrics.json

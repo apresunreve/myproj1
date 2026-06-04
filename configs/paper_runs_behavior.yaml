@@ -69,6 +69,42 @@ runs:
     metrics_path: artifacts/runs/qwen25vl3b_behavior_lora_full/behavior_val_predictions.metrics.json
     training_metrics_path: artifacts/runs/qwen25vl3b_behavior_lora_full/checkpoint/training_metrics.json
     checkpoint_path: artifacts/runs/qwen25vl3b_behavior_lora_full/checkpoint
+  - name: behavior_lora_llava_onevision_qwen2_0_5b_plain_8frames
+    task: behavior
+    family: vlm
+    method: lora
+    model: llava-hf/llava-onevision-qwen2-0.5b-ov-hf
+    output_format: plain
+    metrics_path: artifacts/runs/llava_onevision_qwen2_0_5b_behavior_lora_full/behavior_val_predictions.metrics.json
+    training_metrics_path: artifacts/runs/llava_onevision_qwen2_0_5b_behavior_lora_full/checkpoint/training_metrics.json
+    checkpoint_path: artifacts/runs/llava_onevision_qwen2_0_5b_behavior_lora_full/checkpoint
+  - name: behavior_lora_llava_onevision_qwen2_7b_plain_8frames
+    task: behavior
+    family: vlm
+    method: lora
+    model: llava-hf/llava-onevision-qwen2-7b-ov-hf
+    output_format: plain
+    metrics_path: artifacts/runs/llava_onevision_qwen2_7b_behavior_lora_full/behavior_val_predictions.metrics.json
+    training_metrics_path: artifacts/runs/llava_onevision_qwen2_7b_behavior_lora_full/checkpoint/training_metrics.json
+    checkpoint_path: artifacts/runs/llava_onevision_qwen2_7b_behavior_lora_full/checkpoint
+  - name: behavior_lora_llava_onevision_1_5_4b_plain_8frames
+    task: behavior
+    family: vlm
+    method: lora
+    model: lmms-lab/LLaVA-OneVision-1.5-4B-Instruct
+    output_format: plain
+    metrics_path: artifacts/runs/llava_onevision_1_5_4b_behavior_lora_full/behavior_val_predictions.metrics.json
+    training_metrics_path: artifacts/runs/llava_onevision_1_5_4b_behavior_lora_full/checkpoint/training_metrics.json
+    checkpoint_path: artifacts/runs/llava_onevision_1_5_4b_behavior_lora_full/checkpoint
+  - name: behavior_lora_llava_v1_6_mistral_7b_plain_8frames
+    task: behavior
+    family: vlm
+    method: lora
+    model: llava-hf/llava-v1.6-mistral-7b-hf
+    output_format: plain
+    metrics_path: artifacts/runs/llava_v1_6_mistral_7b_behavior_lora_full/behavior_val_predictions.metrics.json
+    training_metrics_path: artifacts/runs/llava_v1_6_mistral_7b_behavior_lora_full/checkpoint/training_metrics.json
+    checkpoint_path: artifacts/runs/llava_v1_6_mistral_7b_behavior_lora_full/checkpoint
   - name: behavior_lora_qwen25vl3b_structured_8frames
     task: behavior
     family: vlm

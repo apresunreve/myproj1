@@ -109,6 +109,38 @@ run_experiment \
   "artifacts/paper/behavior/lora/qwen25vl3b/structured/behavior_val_predictions.metrics.json"
 
 run_experiment \
+  "behavior_lora_llava_onevision_qwen2_0_5b_plain_8frames" \
+  "$ROOT_DIR/artifacts/runs/llava_onevision_qwen2_0_5b_behavior_lora_full" \
+  "bash \"$ROOT_DIR/scripts/run_llava_onevision_qwen2_0_5b_behavior_lora_full.sh\"" \
+  "bash \"$ROOT_DIR/scripts/run_llava_onevision_qwen2_0_5b_kabr_clip_lora_eval.sh\"" \
+  "artifacts/runs/llava_onevision_qwen2_0_5b_behavior_lora_full/checkpoint/training_metrics.json" \
+  "artifacts/runs/llava_onevision_qwen2_0_5b_behavior_lora_full/behavior_val_predictions.metrics.json"
+
+run_experiment \
+  "behavior_lora_llava_onevision_qwen2_7b_plain_8frames" \
+  "$ROOT_DIR/artifacts/runs/llava_onevision_qwen2_7b_behavior_lora_full" \
+  "bash \"$ROOT_DIR/scripts/run_llava_onevision_qwen2_7b_behavior_lora_full.sh\"" \
+  "bash \"$ROOT_DIR/scripts/run_llava_onevision_qwen2_7b_kabr_clip_lora_eval.sh\"" \
+  "artifacts/runs/llava_onevision_qwen2_7b_behavior_lora_full/checkpoint/training_metrics.json" \
+  "artifacts/runs/llava_onevision_qwen2_7b_behavior_lora_full/behavior_val_predictions.metrics.json"
+
+run_experiment \
+  "behavior_lora_llava_onevision_1_5_4b_plain_8frames" \
+  "$ROOT_DIR/artifacts/runs/llava_onevision_1_5_4b_behavior_lora_full" \
+  "bash \"$ROOT_DIR/scripts/run_llava_onevision_1_5_4b_behavior_lora_full.sh\"" \
+  "bash \"$ROOT_DIR/scripts/run_llava_onevision_1_5_4b_kabr_clip_lora_eval.sh\"" \
+  "artifacts/runs/llava_onevision_1_5_4b_behavior_lora_full/checkpoint/training_metrics.json" \
+  "artifacts/runs/llava_onevision_1_5_4b_behavior_lora_full/behavior_val_predictions.metrics.json"
+
+run_experiment \
+  "behavior_lora_llava_v1_6_mistral_7b_plain_8frames" \
+  "$ROOT_DIR/artifacts/runs/llava_v1_6_mistral_7b_behavior_lora_full" \
+  "bash \"$ROOT_DIR/scripts/run_llava_v1_6_mistral_7b_behavior_lora_full.sh\"" \
+  "bash \"$ROOT_DIR/scripts/run_llava_v1_6_mistral_7b_kabr_clip_lora_eval.sh\"" \
+  "artifacts/runs/llava_v1_6_mistral_7b_behavior_lora_full/checkpoint/training_metrics.json" \
+  "artifacts/runs/llava_v1_6_mistral_7b_behavior_lora_full/behavior_val_predictions.metrics.json"
+
+run_experiment \
   "behavior_distill_alpha70" \
   "$ROOT_DIR/artifacts/paper/behavior/distill/qwen25vl3b/mlp_alpha70" \
   "mkdir -p artifacts/paper/behavior/distill/qwen25vl3b/mlp_alpha70/features && cp -n artifacts/paper/behavior/distill/qwen25vl3b/mlp/features/train.pt artifacts/paper/behavior/distill/qwen25vl3b/mlp_alpha70/features/train.pt && cp -n artifacts/paper/behavior/distill/qwen25vl3b/mlp/features/val.pt artifacts/paper/behavior/distill/qwen25vl3b/mlp_alpha70/features/val.pt && cp -n artifacts/paper/behavior/distill/qwen25vl3b/mlp/teacher_probs.pt artifacts/paper/behavior/distill/qwen25vl3b/mlp_alpha70/teacher_probs.pt && \"$CLI_BIN\" train-distill --config configs/qwen25vl3b_behavior_distill_mlp_alpha70.yaml" \

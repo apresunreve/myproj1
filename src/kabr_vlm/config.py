@@ -19,6 +19,7 @@ class ModelConfig(BaseModel):
     base_model_id: str = Field(alias="name")
     processor_id: str | None = None
     adapter_path: Path | None = None
+    attention_experiment: str = "baseline"
     max_frames: int = 32
     precision: str = "bf16"
     prompt_mode: str = "label"
@@ -49,7 +50,8 @@ class TrainingConfig(BaseModel):
     gradient_checkpointing: bool = True
     bf16: bool = True
     fp16: bool = False
-    save_strategy: str = "epoch"
+    save_strategy: str = "steps"
+    save_steps: int = 250
     eval_strategy: str = "epoch"
     save_total_limit: int = 2
     logging_steps: int = 10
@@ -64,6 +66,15 @@ class TrainingConfig(BaseModel):
     classifier_type: str = "linear"
     distill_temperature: float = 2.0
     distill_alpha: float = 0.5
+    # Phase-2 class-collapse-aware training.
+    # class_weighting: none | balanced | inv_sqrt
+    #   balanced  -> weight_c = N / (num_classes * count_c)        (sklearn convention)
+    #   inv_sqrt  -> weight_c = sqrt(max_count / count_c)          (gentler, our default for imbalance)
+    #   focal     -> focal(gamma) on per-example loss
+    # class_sampler: uniform | class_balanced
+    class_weighting: str = "none"
+    focal_gamma: float = 2.0
+    class_sampler: str = "uniform"
 
 
 class AppConfig(BaseModel):
