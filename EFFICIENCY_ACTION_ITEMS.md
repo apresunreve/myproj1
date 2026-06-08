@@ -34,6 +34,10 @@
 - [x] Create `EFFICIENCY_BASELINE_SUMMARY.md`.
 - [x] Add latency-aware fields to `scripts/eval_cross_dataset_vlm.py`.
 - [x] Smoke test latency-aware MiniCPM eval.
+- [x] Run compact latency baselines with the updated evaluator.
+- [x] Summarize compact latency baselines.
+- [x] Create first Qwen label-likelihood prototype.
+- [x] Run one-clip Qwen label-likelihood smoke test.
 - [x] Commit and push current docs, configs, scripts, and eval loader changes.
 
 ## Current Baseline Results
@@ -57,20 +61,20 @@
 
 ## Next Action Items
 
-- [ ] Run compact latency baselines with the updated evaluator.
-  - [ ] MiniCPM-V 4.6 KABR LoRA on KABR
-  - [ ] Qwen2.5-VL KABR LoRA on KABR
-  - [ ] LLaVA-OV-0.5B KABR LoRA on KABR
-  - [ ] MiniCPM-V 4.6 BaboonLand LoRA on BaboonLand
-  - [ ] LLaVA-OV-0.5B BaboonLand LoRA on BaboonLand
-- [ ] Summarize compact latency baselines.
-  - [ ] Accuracy
-  - [ ] Macro F1
-  - [ ] Parsed rate
-  - [ ] Median latency
-  - [ ] P90 latency
-  - [ ] Peak GPU memory
-  - [ ] Rows per second
+- [x] Run compact latency baselines with the updated evaluator.
+  - [x] MiniCPM-V 4.6 KABR LoRA on KABR
+  - [x] Qwen2.5-VL KABR LoRA on KABR
+  - [x] LLaVA-OV-0.5B KABR LoRA on KABR
+  - [x] MiniCPM-V 4.6 BaboonLand LoRA on BaboonLand
+  - [x] LLaVA-OV-0.5B BaboonLand LoRA on BaboonLand
+- [x] Summarize compact latency baselines.
+  - [x] Accuracy
+  - [x] Macro F1
+  - [x] Parsed rate
+  - [x] Median latency
+  - [x] P90 latency
+  - [x] Peak GPU memory
+  - [x] Rows per second
 - [ ] Decide whether to rerun full latency baselines.
   - [ ] MiniCPM full evals
   - [ ] Qwen full evals
@@ -78,18 +82,18 @@
 
 ## Label-Likelihood Prototype
 
-- [ ] Create `src/kabr_vlm/efficiency/`.
-- [ ] Add `src/kabr_vlm/efficiency/label_likelihood.py`.
-- [ ] Add `src/kabr_vlm/efficiency/confidence.py`.
-- [ ] Implement Qwen2.5-VL label scoring first.
-- [ ] Score each closed-set behavior label directly.
+- [x] Create `src/kabr_vlm/efficiency/`.
+- [x] Add `src/kabr_vlm/efficiency/label_likelihood.py`.
+- [x] Add `src/kabr_vlm/efficiency/confidence.py`.
+- [x] Implement Qwen2.5-VL label scoring first.
+- [x] Score each closed-set behavior label directly.
 - [ ] Return:
-  - [ ] `label_scores`
-  - [ ] top-1 label
-  - [ ] top-2 label
-  - [ ] confidence margin
-  - [ ] entropy
-- [ ] Run a small Qwen label-likelihood smoke test.
+  - [x] `label_scores`
+  - [x] top-1 label
+  - [x] top-2 label
+  - [x] confidence margin
+  - [x] entropy
+- [x] Run a small Qwen label-likelihood smoke test.
 - [ ] Compare label-likelihood against generation on:
   - [ ] accuracy
   - [ ] macro F1

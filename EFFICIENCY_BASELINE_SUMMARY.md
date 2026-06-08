@@ -52,11 +52,44 @@ should not be treated as a model-quality result without rerunning.
 | MobileVLM-v2-1.7B BaboonLand LoRA | 6198 | 1.0000 | 0.7115 | 0.3037 | `artifacts/baboonland_eval/mobilevlm_v2_1_7b_baboonland_lora.metrics.json` |
 | Qwen2.5-VL-3B BaboonLand B4 sampler | 6198 | 1.0000 | 0.6162 | 0.3486 | `artifacts/baboonland_eval/qwen25vl3b_bbl_lora_b4_sampler.jsonl.metrics.json` |
 
+## Compact Latency Baselines
+
+Compact latency baselines were run on this node with `MAX_SAMPLES=100`,
+`MAX_NEW_TOKENS=8`, and the latency-aware JSONL evaluator.
+
+Launcher:
+
+```text
+scripts/run_compact_latency_baselines_local.sh
+```
+
+Outputs:
+
+```text
+artifacts/latency_baselines/compact_100/
+```
+
+| Model / adapter | Dataset | Rows | Accuracy | Macro F1 | Median ms | P90 ms | Peak GPU MB | Rows/sec |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| MiniCPM-V 4.6 KABR LoRA | KABR | 100 | 0.8000 | 0.2174 | 263.37 | 330.67 | 2843.2 | 3.2612 |
+| Qwen2.5-VL-7B KABR LoRA | KABR | 100 | 0.8900 | 0.3154 | 410.21 | 439.80 | 16447.3 | 2.2496 |
+| LLaVA-OV-Qwen2-0.5B KABR LoRA | KABR | 100 | 0.7400 | 0.2048 | 243.94 | 268.14 | 2263.0 | 3.9011 |
+| MiniCPM-V 4.6 BaboonLand LoRA | BaboonLand | 100 | 0.7700 | 0.2815 | 339.12 | 423.93 | 2866.8 | 2.7074 |
+| LLaVA-OV-Qwen2-0.5B BaboonLand LoRA | BaboonLand | 100 | 0.5300 | 0.1082 | 317.61 | 322.67 | 2263.0 | 3.2122 |
+
+Notes:
+
+- These are compact timing baselines, not full-dataset quality estimates.
+- All runs parsed 100/100 rows.
+- The KABR compact subset is easier than the full KABR distribution for
+  Qwen2.5-VL-7B; use the full-eval table for final accuracy comparisons.
+
 ## Missing For Efficiency Experiments
 
 The current baseline table is accuracy/F1 oriented. The JSONL evaluator now
-records latency-aware fields, but older full-eval metrics need to be regenerated
-or post-processed before reporting efficiency claims.
+records latency-aware fields. Compact latency baselines are available, but
+older full-eval metrics need to be regenerated or post-processed before
+reporting full-dataset efficiency claims.
 
 New per-row fields in `scripts/eval_cross_dataset_vlm.py`:
 
@@ -89,6 +122,37 @@ num_input_frames_mean=8
 peak_gpu_memory_mb=2843.2
 ```
 
-The next implementation step is to rerun compact baseline subsets with this
-latency-aware evaluator, then prototype label-likelihood and confidence scoring
-on one Qwen-family model.
+The next implementation step is to prototype label-likelihood and confidence
+scoring on one Qwen-family model.
+
+## Label-Likelihood Prototype Smoke
+
+Initial Qwen2.5-VL label-likelihood helpers were added under:
+
+```text
+src/kabr_vlm/efficiency/
+```
+
+The prototype scores each candidate behavior label by summing assistant-label
+token log probabilities under the adapter model, then derives confidence from
+the closed-set score distribution.
+
+Smoke artifact:
+
+```text
+artifacts/smoke/label_likelihood/qwen7b_kabr_1sample.log
+```
+
+One-clip Qwen2.5-VL-7B KABR adapter smoke:
+
+```text
+gold=Head Up
+prediction=Head Up
+top2=Browse
+margin=4.6356
+entropy=0.1110
+```
+
+This validates the model-loading and closed-set scoring path. The next step is
+to compare label-likelihood against generation on a small multi-class subset
+with accuracy, macro F1, latency, margin, and entropy summaries.
