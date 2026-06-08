@@ -12,7 +12,10 @@ per-class F1, and pred/gold distributions.
 
 import argparse
 import json
+import math
+import statistics
 import sys
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -167,6 +170,35 @@ def compute_metrics(records: list[dict], target: str) -> dict:
     macro_f1 = f1_sum / len(labels)
     pred_distribution = Counter(r["pred_label"] or "__unparsed__" for r in records)
     gold_distribution = Counter(r["gold_label"] for r in records)
+    latencies_ms = [
+        float(r["latency_ms"])
+        for r in records
+        if isinstance(r.get("latency_ms"), int | float) and r["latency_ms"] >= 0
+    ]
+    frame_counts = [
+        int(r["num_input_frames"])
+        for r in records
+        if isinstance(r.get("num_input_frames"), int) and r["num_input_frames"] >= 0
+    ]
+    latency_summary = {}
+    if latencies_ms:
+        ordered = sorted(latencies_ms)
+        p90_idx = max(0, min(len(ordered) - 1, math.ceil(0.9 * len(ordered)) - 1))
+        latency_summary = {
+            "n_timed": len(latencies_ms),
+            "latency_median_ms": round(statistics.median(ordered), 2),
+            "latency_p90_ms": round(ordered[p90_idx], 2),
+            "latency_mean_ms": round(statistics.mean(ordered), 2),
+            "latency_min_ms": round(ordered[0], 2),
+            "latency_max_ms": round(ordered[-1], 2),
+        }
+    frame_summary = {}
+    if frame_counts:
+        frame_summary = {
+            "num_input_frames_mean": round(statistics.mean(frame_counts), 2),
+            "num_input_frames_min": min(frame_counts),
+            "num_input_frames_max": max(frame_counts),
+        }
     return {
         "target_dataset": target,
         "n_total": n_total,
@@ -178,7 +210,37 @@ def compute_metrics(records: list[dict], target: str) -> dict:
         "per_class_f1": per_class_f1,
         "pred_distribution": dict(pred_distribution),
         "gold_distribution": dict(gold_distribution),
+        **latency_summary,
+        **frame_summary,
     }
+
+
+def _cuda_peak_memory_mb() -> float | None:
+    try:
+        import torch
+    except ImportError:
+        return None
+    if not torch.cuda.is_available():
+        return None
+    return round(torch.cuda.max_memory_allocated() / 1024 / 1024, 1)
+
+
+def _reset_cuda_peak_memory() -> None:
+    try:
+        import torch
+    except ImportError:
+        return
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+
+
+def _synchronize_cuda() -> None:
+    try:
+        import torch
+    except ImportError:
+        return
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
 
 
 def main() -> None:
@@ -232,6 +294,8 @@ def main() -> None:
         generator = None
         is_pipeline = False
 
+    _reset_cuda_peak_memory()
+    eval_start = time.perf_counter()
     mode = "a" if args.resume else "w"
     with output_path.open(mode, encoding="utf-8") as handle:
         for index, row in enumerate(pending_rows):
@@ -247,7 +311,10 @@ def main() -> None:
                 gold_label = row.get("answer", "")
             image_paths = row["image_paths"]
             prompt = row["prompt"]
+            latency_ms = None
             try:
+                _synchronize_cuda()
+                t0 = time.perf_counter()
                 if is_pipeline:
                     messages = [
                         {
@@ -262,7 +329,12 @@ def main() -> None:
                     text = output[0]["generated_text"][-1]["content"] if isinstance(output, list) else str(output)
                 else:
                     text = generator(image_paths=image_paths, prompt=prompt, max_new_tokens=args.max_new_tokens)
+                _synchronize_cuda()
+                latency_ms = (time.perf_counter() - t0) * 1000.0
             except Exception as exc:  # noqa: BLE001
+                _synchronize_cuda()
+                if "t0" in locals():
+                    latency_ms = (time.perf_counter() - t0) * 1000.0
                 text = f"__generation_error__: {exc!r}"
             pred_label = extract_label(text, args.target_dataset)
             record = {
@@ -270,6 +342,8 @@ def main() -> None:
                 "gold_label": gold_label,
                 "pred_text": text,
                 "pred_label": pred_label,
+                "latency_ms": None if latency_ms is None else round(latency_ms, 2),
+                "num_input_frames": len(image_paths),
             }
             handle.write(json.dumps(record, ensure_ascii=True) + "\n")
             handle.flush()
@@ -281,13 +355,21 @@ def main() -> None:
                     flush=True,
                 )
 
+    eval_wall_seconds = time.perf_counter() - eval_start
     metrics = compute_metrics(records, args.target_dataset)
+    metrics["eval_wall_seconds"] = round(eval_wall_seconds, 2)
+    if pending_rows:
+        metrics["new_rows_per_second"] = round(len(pending_rows) / eval_wall_seconds, 4) if eval_wall_seconds else 0.0
+    metrics["peak_gpu_memory_mb"] = _cuda_peak_memory_mb()
     metrics_path = Path(str(output_path) + ".metrics.json")
     metrics_path.write_text(json.dumps(metrics, indent=2, ensure_ascii=True), encoding="utf-8")
     print(
         f"wrote predictions: {output_path}\nwrote metrics: {metrics_path}\n"
         f"accuracy={metrics['accuracy']:.4f} macro_f1={metrics['macro_f1']:.4f} "
-        f"parsed_rate={metrics['parsed_rate']:.4f}",
+        f"parsed_rate={metrics['parsed_rate']:.4f} "
+        f"latency_median_ms={metrics.get('latency_median_ms', 'NA')} "
+        f"latency_p90_ms={metrics.get('latency_p90_ms', 'NA')} "
+        f"peak_gpu_memory_mb={metrics.get('peak_gpu_memory_mb', 'NA')}",
         flush=True,
     )
 

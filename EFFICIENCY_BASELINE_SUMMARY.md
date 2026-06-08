@@ -54,14 +54,41 @@ should not be treated as a model-quality result without rerunning.
 
 ## Missing For Efficiency Experiments
 
-The current baseline table is accuracy/F1 oriented. Before reporting efficiency
-claims, add:
+The current baseline table is accuracy/F1 oriented. The JSONL evaluator now
+records latency-aware fields, but older full-eval metrics need to be regenerated
+or post-processed before reporting efficiency claims.
+
+New per-row fields in `scripts/eval_cross_dataset_vlm.py`:
+
+- `latency_ms`
+- `num_input_frames`
+
+New aggregate metrics:
 
 - median latency per clip
 - p90 latency per clip
+- mean/min/max latency per clip
 - peak GPU memory
-- frames per clip
-- rows per second
+- input-frame summary
+- new rows per second
 
-The next implementation step is to add a latency-aware eval summary, then
-prototype label-likelihood and confidence scoring on one Qwen-family model.
+Validation smoke:
+
+```text
+artifacts/smoke/latency_metrics_minicpm_v46/minicpm_kabr_2sample.jsonl.metrics.json
+```
+
+The smoke confirmed:
+
+```text
+n_total=2
+n_timed=2
+latency_median_ms=1196.95
+latency_p90_ms=2106.57
+num_input_frames_mean=8
+peak_gpu_memory_mb=2843.2
+```
+
+The next implementation step is to rerun compact baseline subsets with this
+latency-aware evaluator, then prototype label-likelihood and confidence scoring
+on one Qwen-family model.
