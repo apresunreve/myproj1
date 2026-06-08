@@ -1,0 +1,47 @@
+project_name: baboonland-minicpm-v46-behavior-lora-full
+seed: 42
+
+data:
+  train_file: data/processed/baboonland_behavior_train.jsonl
+  val_file: data/processed/baboonland_behavior_val.jsonl
+  video_root:
+  task_mode: action_recognition
+  input_type: clip
+  max_frames_per_clip: 8
+  max_train_samples:
+  max_val_samples:
+
+model:
+  name: openbmb/MiniCPM-V-4.6
+  processor_id:
+  adapter_path:
+  max_frames: 8
+  precision: bf16
+  prompt_mode: label
+  output_format: plain
+
+training:
+  output_dir: artifacts/runs/baboonland/minicpm_v46_behavior_lora_full/checkpoint
+  method: lora
+  epochs: 1
+  batch_size: 1
+  eval_batch_size: 1
+  learning_rate: 2.0e-4
+  gradient_accumulation_steps: 8
+  weight_decay: 0.0
+  max_seq_length: 2048
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  gradient_checkpointing: true
+  bf16: true
+  fp16: false
+  save_strategy: steps
+  save_steps: 500
+  eval_strategy: "no"
+  save_total_limit: 2
+  logging_steps: 25
+  seed: 42
+  dry_run: false
+  class_weighting: none
+  class_sampler: uniform

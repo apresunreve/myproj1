@@ -742,7 +742,7 @@ def load_hf_pipeline(model_id: str, attention_experiment: str | None = None):
     )
 
 
-def load_hf_minicpm_v46_generator(model_id: str):
+def load_hf_minicpm_v46_generator(model_id: str, adapter_path: str | Path | None = None):
     try:
         import torch
         import transformers
@@ -771,6 +771,16 @@ def load_hf_minicpm_v46_generator(model_id: str):
         trust_remote_code=True,
         **_hf_auth_kwargs(),
     ).eval()
+    if adapter_path is not None:
+        try:
+            from peft import PeftModel
+        except ImportError as exc:
+            raise RuntimeError(
+                "MiniCPM-V 4.6 adapter inference requires `peft`. "
+                "Install with `uv pip install -e \".[infer,train]\"`."
+            ) from exc
+        model = PeftModel.from_pretrained(model, str(adapter_path))
+        model = model.eval()
     processor = AutoProcessor.from_pretrained(
         model_id,
         trust_remote_code=True,
@@ -1036,9 +1046,7 @@ def _load_hf_generator_from_source(
         )
         return MobileVLMGenerator(model=model, tokenizer=tokenizer, image_processor=image_processor)
     if _is_minicpm_v46_model(model_id):
-        if adapter_path is not None:
-            raise RuntimeError("MiniCPM-V 4.6 adapter loading is not implemented for this eval path.")
-        return load_hf_minicpm_v46_generator(model_source)
+        return load_hf_minicpm_v46_generator(model_source, adapter_path=adapter_path)
     if _is_qwen25_vl_model(model_id):
         model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_source,
