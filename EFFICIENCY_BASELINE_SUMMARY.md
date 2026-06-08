@@ -167,6 +167,7 @@ artifacts/smoke/label_likelihood/qwen7b_balanced_5pc/
 |---|---:|---:|---:|---:|---:|---|
 | Generation | 40 | 0.4250 | 0.3118 | 419.69 | 469.26 | Free-form generation + parsing |
 | Label likelihood | 40 | 0.4250 | 0.3232 | 3017.20 | 3114.47 | Sequential 8-label scoring |
+| Label likelihood, batched labels | 40 | 0.4250 | 0.3232 | 3697.81 | 3810.49 | One forward batch over 8 labels |
 
 Label-likelihood confidence summary:
 
@@ -180,5 +181,9 @@ Interpretation:
 - Label-likelihood matched generation accuracy on this balanced subset.
 - The current prototype is much slower because it runs one forward pass per
   candidate label.
-- The next engineering step is batched label scoring and a small analysis of
-  whether margin/entropy separate correct from incorrect predictions.
+- Naively batching all labels did not improve latency on this GPU because the
+  visual input is duplicated for each label in the batch.
+- The next engineering step is not naive label batching; it is either
+  visual-prefix caching or a cheaper confidence proxy from generation logits.
+  In parallel, analyze whether margin/entropy separate correct from incorrect
+  predictions.

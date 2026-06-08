@@ -106,6 +106,12 @@ def main() -> None:
     parser.add_argument("--model-id", default="Qwen/Qwen2.5-VL-7B-Instruct")
     parser.add_argument("--adapter-path", default="artifacts/runs/qwen25vl7b_behavior_lora_full/checkpoint")
     parser.add_argument("--samples-per-class", type=int, default=5)
+    parser.add_argument(
+        "--label-batch-size",
+        type=int,
+        default=1,
+        help="Number of labels to score per forward pass. Use 0 to score all labels together.",
+    )
     parser.add_argument("--output-jsonl", required=True)
     args = parser.parse_args()
 
@@ -113,7 +119,12 @@ def main() -> None:
     output_path = Path(args.output_jsonl)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    scorer = QwenLabelLikelihoodScorer.from_adapter(args.model_id, args.adapter_path)
+    label_batch_size = None if args.label_batch_size <= 0 else args.label_batch_size
+    scorer = QwenLabelLikelihoodScorer.from_adapter(
+        args.model_id,
+        args.adapter_path,
+        label_batch_size=label_batch_size,
+    )
     records = []
     with output_path.open("w", encoding="utf-8") as handle:
         for idx, row in enumerate(rows, start=1):

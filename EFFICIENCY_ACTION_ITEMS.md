@@ -100,7 +100,12 @@
   - [x] macro F1
   - [x] latency
   - [x] confidence quality
-- [ ] Batch label scoring so one clip does not require one forward pass per label.
+- [x] Add configurable label-batch scoring.
+- [x] Test naive all-label batching.
+- [ ] Replace naive label batching with an efficient method that avoids
+  duplicating the visual input per label.
+- [ ] Investigate visual-prefix caching for label scoring.
+- [ ] Investigate generation-logit confidence as a cheaper fallback signal.
 - [ ] Analyze whether confidence separates correct from incorrect predictions.
 
 ## Eval Mode Plumbing
