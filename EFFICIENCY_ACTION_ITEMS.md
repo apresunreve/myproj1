@@ -105,8 +105,10 @@
 - [ ] Replace naive label batching with an efficient method that avoids
   duplicating the visual input per label.
 - [ ] Investigate visual-prefix caching for label scoring.
-- [ ] Investigate generation-logit confidence as a cheaper fallback signal.
-- [ ] Analyze whether confidence separates correct from incorrect predictions.
+- [x] Investigate generation-logit confidence as a cheaper fallback signal.
+- [x] Analyze whether generation-logit confidence separates correct from
+  incorrect predictions on the 40-clip smoke subset.
+- [ ] Evaluate generation-logit confidence thresholds for abstention or routing.
 
 ## Eval Mode Plumbing
 

@@ -166,6 +166,7 @@ artifacts/smoke/label_likelihood/qwen7b_balanced_5pc/
 | Mode | Rows | Accuracy | Macro F1 | Median ms | P90 ms | Notes |
 |---|---:|---:|---:|---:|---:|---|
 | Generation | 40 | 0.4250 | 0.3118 | 419.69 | 469.26 | Free-form generation + parsing |
+| Generation + logit confidence | 40 | 0.4250 | 0.3118 | 419.53 | 466.30 | Same generation path, token-score confidence |
 | Label likelihood | 40 | 0.4250 | 0.3232 | 3017.20 | 3114.47 | Sequential 8-label scoring |
 | Label likelihood, batched labels | 40 | 0.4250 | 0.3232 | 3697.81 | 3810.49 | One forward batch over 8 labels |
 
@@ -176,6 +177,17 @@ margin_median=2.0610
 entropy_median=0.6309
 ```
 
+Generation-logit confidence summary:
+
+```text
+first_token_prob_median=0.8744
+first_token_prob_correct_median=0.9608
+first_token_prob_incorrect_median=0.7209
+mean_token_entropy_median=0.3375
+mean_token_entropy_correct_median=0.1679
+mean_token_entropy_incorrect_median=0.4746
+```
+
 Interpretation:
 
 - Label-likelihood matched generation accuracy on this balanced subset.
@@ -183,7 +195,8 @@ Interpretation:
   candidate label.
 - Naively batching all labels did not improve latency on this GPU because the
   visual input is duplicated for each label in the batch.
-- The next engineering step is not naive label batching; it is either
-  visual-prefix caching or a cheaper confidence proxy from generation logits.
-  In parallel, analyze whether margin/entropy separate correct from incorrect
-  predictions.
+- Generation-logit confidence adds no meaningful latency over generation and
+  shows a useful smoke-test separation between correct and incorrect examples.
+- The next engineering step is to use generation-logit confidence for
+  abstention/routing analysis before investing in visual-prefix caching for
+  label likelihood.
