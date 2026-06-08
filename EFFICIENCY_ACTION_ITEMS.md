@@ -38,6 +38,7 @@
 - [x] Summarize compact latency baselines.
 - [x] Create first Qwen label-likelihood prototype.
 - [x] Run one-clip Qwen label-likelihood smoke test.
+- [x] Run balanced 40-clip Qwen label-likelihood vs generation comparison.
 - [x] Commit and push current docs, configs, scripts, and eval loader changes.
 
 ## Current Baseline Results
@@ -94,11 +95,13 @@
   - [x] confidence margin
   - [x] entropy
 - [x] Run a small Qwen label-likelihood smoke test.
-- [ ] Compare label-likelihood against generation on:
-  - [ ] accuracy
-  - [ ] macro F1
-  - [ ] latency
-  - [ ] confidence quality
+- [x] Compare label-likelihood against generation on:
+  - [x] accuracy
+  - [x] macro F1
+  - [x] latency
+  - [x] confidence quality
+- [ ] Batch label scoring so one clip does not require one forward pass per label.
+- [ ] Analyze whether confidence separates correct from incorrect predictions.
 
 ## Eval Mode Plumbing
 

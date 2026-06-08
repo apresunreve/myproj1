@@ -156,3 +156,29 @@ entropy=0.1110
 This validates the model-loading and closed-set scoring path. The next step is
 to compare label-likelihood against generation on a small multi-class subset
 with accuracy, macro F1, latency, margin, and entropy summaries.
+
+Balanced 40-clip KABR comparison:
+
+```text
+artifacts/smoke/label_likelihood/qwen7b_balanced_5pc/
+```
+
+| Mode | Rows | Accuracy | Macro F1 | Median ms | P90 ms | Notes |
+|---|---:|---:|---:|---:|---:|---|
+| Generation | 40 | 0.4250 | 0.3118 | 419.69 | 469.26 | Free-form generation + parsing |
+| Label likelihood | 40 | 0.4250 | 0.3232 | 3017.20 | 3114.47 | Sequential 8-label scoring |
+
+Label-likelihood confidence summary:
+
+```text
+margin_median=2.0610
+entropy_median=0.6309
+```
+
+Interpretation:
+
+- Label-likelihood matched generation accuracy on this balanced subset.
+- The current prototype is much slower because it runs one forward pass per
+  candidate label.
+- The next engineering step is batched label scoring and a small analysis of
+  whether margin/entropy separate correct from incorrect predictions.
