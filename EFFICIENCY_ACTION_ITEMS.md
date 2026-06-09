@@ -117,8 +117,14 @@
   threshold.
 - [x] Design rare-class-aware fallback for confidently wrong Auto-Groom, Trot,
   and Occluded cases.
-- [ ] Tune rare-class fallback thresholds to reduce routing load while keeping
+- [x] Tune rare-class fallback thresholds to reduce routing load while keeping
   rare-label error capture useful.
+- [x] Materialize row-level routing outputs for balanced and rare-capture
+  fallback policies.
+- [ ] Compare adaptive routing against a concrete fallback model/scorer on the
+  routed subset.
+- [ ] Validate the selected routing rule on another split or dataset before
+  treating thresholds as stable.
 
 ## Eval Mode Plumbing
 

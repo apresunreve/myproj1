@@ -32,7 +32,7 @@ def base_low_confidence_route(row: dict[str, Any]) -> bool:
     return row.get("route_decision") == "route"
 
 
-def rare_ambiguity_route(row: dict[str, Any]) -> bool:
+def rare_ambiguity_route_handpicked(row: dict[str, Any]) -> bool:
     prediction = row.get("prediction")
     confidence = row.get("confidence", {})
     mean_logprob = confidence_value(row, "mean_token_logprob")
@@ -58,11 +58,35 @@ def rare_ambiguity_route(row: dict[str, Any]) -> bool:
     return False
 
 
-def analyze(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def rare_ambiguity_route_prediction_metric(
+    row: dict[str, Any],
+    *,
+    metric: str,
+    thresholds: dict[str, float | None],
+) -> bool:
+    threshold = thresholds.get(str(row.get("prediction")))
+    if threshold is None:
+        return False
+    value = confidence_value(row, metric)
+    return value is not None and value < threshold
+
+
+def analyze(
+    rows: list[dict[str, Any]],
+    *,
+    mode: str,
+    metric: str,
+    thresholds: dict[str, float | None],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     routed_rows = []
     for row in rows:
         low_conf = base_low_confidence_route(row)
-        rare_ambiguity = rare_ambiguity_route(row)
+        if mode == "handpicked":
+            rare_ambiguity = rare_ambiguity_route_handpicked(row)
+        elif mode == "prediction_metric":
+            rare_ambiguity = rare_ambiguity_route_prediction_metric(row, metric=metric, thresholds=thresholds)
+        else:
+            raise ValueError(f"Unsupported mode: {mode}")
         next_row = dict(row)
         if low_conf:
             decision = "route_low_confidence"
@@ -92,6 +116,9 @@ def analyze(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str,
     ]
     route_counts = Counter(row["rare_fallback_route_decision"] for row in routed_rows)
     metrics = {
+        "mode": mode,
+        "metric": metric,
+        "prediction_thresholds": thresholds,
         "n_total": len(routed_rows),
         "base_accuracy": sum(1 for row in routed_rows if row.get("correct", False)) / len(routed_rows),
         "n_accepted": len(accepted),
@@ -128,10 +155,20 @@ def main() -> None:
     parser.add_argument("--input-jsonl", required=True)
     parser.add_argument("--output-jsonl", required=True)
     parser.add_argument("--output-metrics-json", required=True)
+    parser.add_argument("--mode", choices=["handpicked", "prediction_metric"], default="handpicked")
+    parser.add_argument("--metric", default="mean_token_logprob")
+    parser.add_argument("--graze-threshold", type=float, default=None)
+    parser.add_argument("--walk-threshold", type=float, default=None)
+    parser.add_argument("--head-up-threshold", type=float, default=None)
     args = parser.parse_args()
 
     rows = load_jsonl(Path(args.input_jsonl))
-    routed_rows, metrics = analyze(rows)
+    thresholds = {
+        "Graze": args.graze_threshold,
+        "Walk": args.walk_threshold,
+        "Head Up": args.head_up_threshold,
+    }
+    routed_rows, metrics = analyze(rows, mode=args.mode, metric=args.metric, thresholds=thresholds)
 
     output_jsonl = Path(args.output_jsonl)
     output_jsonl.parent.mkdir(parents=True, exist_ok=True)

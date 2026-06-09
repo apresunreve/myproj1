@@ -316,3 +316,24 @@ The rare-class rule catches 112 rare-label errors and reduces accepted
 rare-label errors from 115 to 51, but it routes 905 additional clips. This is
 useful if the fallback path is cheap or high-value; otherwise it needs a less
 aggressive operating point.
+
+Rare-class threshold sweep:
+
+```text
+artifacts/full_eval/generation_logit/qwen7b_kabr_full/rare_class_threshold_sweep_fine.json
+```
+
+The sweep keeps the base low-confidence route and adds prediction-specific
+`mean_token_logprob` thresholds for common predictions that absorb rare-label
+errors: `Graze`, `Walk`, and `Head Up`.
+
+| Policy | Graze threshold | Walk threshold | Head Up threshold | Coverage | Routing load | Accepted accuracy | Total error capture | Rare-label error capture |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Confidence only | NA | NA | NA | 0.8980 | 0.1020 | 0.9046 | 0.3685 | 0.2945 |
+| Balanced rare fallback | -0.1200 | -0.2400 | -0.1000 | 0.8053 | 0.1947 | 0.9314 | 0.5926 | 0.4479 |
+| Rare-capture fallback | -0.0600 | -0.2000 | -0.2400 | 0.8001 | 0.1999 | 0.9268 | 0.5685 | 0.6074 |
+| Aggressive rare fallback | mixed | mixed | mixed | 0.6707 | 0.3293 | 0.9554 | 0.7796 | 0.6871 |
+
+Recommended first operating point: balanced rare fallback. It roughly doubles
+routing load compared with confidence-only routing, but raises accepted
+accuracy from 90.5% to 93.1% and routes 320 of 540 total errors.
