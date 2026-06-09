@@ -502,3 +502,29 @@ rows. Per-class F1 in the tuned system is Auto-Groom 0.1224, Trot 0.5417, and
 Occluded 0.3485. Because the assignment was tuned on this validation split, it
 needs validation on another split or dataset before being treated as a stable
 policy.
+
+Held-out split check for fallback assignment:
+
+```text
+artifacts/full_eval/adaptive_fallback/qwen_balanced_predset_minicpm_system/split_validation.json
+```
+
+The fallback assignment was also tested with 20 deterministic half-splits of
+the existing KABR validation records. For each split, the best Qwen-prediction
+label set was selected on one half and evaluated on the held-out half.
+
+```text
+standard_fallback_all: accuracy=0.8744 macro_f1=0.5323
+class_balanced_fallback_all: accuracy=0.8681 macro_f1=0.6309
+tuned_full_policy: Browse, Graze, Run, Trot, Walk
+tuned_full: accuracy=0.8716 macro_f1=0.6354
+heldout_mean: accuracy=0.8689 macro_f1=0.6298
+heldout_macro_f1_range=0.5974..0.6641
+```
+
+The most frequent held-out policies were `Browse,Graze,Run,Walk` in 8/20
+splits and `Graze,Run,Trot,Walk` in 4/20 splits. This supports the general
+idea that class-balanced MiniCPM should be used on only a subset of routed
+Qwen prediction labels, especially Graze/Walk/Run-like confusions. It is still
+an internal split of the same validation set, so the next stronger check is a
+true held-out split or another dataset.

@@ -134,7 +134,7 @@
 - [x] Monitor class-balanced MiniCPM job and evaluate on full KABR validation.
 - [x] Compare class-balanced MiniCPM rare-label recall against standard MiniCPM
   and Qwen adaptive routing.
-- [ ] Build a routing policy that uses class-balanced MiniCPM only as a
+- [x] Build a routing policy that uses class-balanced MiniCPM only as a
   rare-class specialist, not as the default full-dataset predictor.
 - [x] Evaluate class-balanced MiniCPM as fallback on the balanced Qwen routed
   subset.
@@ -143,6 +143,8 @@
   standard MiniCPM handles generic low-confidence rows.
 - [x] Tune routing decision assignment because Trot recovery needs
   class-balanced fallback on some low-confidence rows too.
+- [x] Run deterministic held-out split validation within KABR val for the
+  tuned fallback assignment.
 - [ ] Validate the tuned prediction-set fallback policy off this validation
   split before treating it as a stable result.
 - [ ] Validate the selected routing rule on another split or dataset before
