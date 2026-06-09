@@ -108,7 +108,11 @@
 - [x] Investigate generation-logit confidence as a cheaper fallback signal.
 - [x] Analyze whether generation-logit confidence separates correct from
   incorrect predictions on the 40-clip smoke subset.
-- [ ] Evaluate generation-logit confidence thresholds for abstention or routing.
+- [x] Evaluate generation-logit confidence thresholds for abstention or routing
+  on the 40-clip smoke subset.
+- [ ] Collect generation-logit confidence on a larger validation subset.
+- [ ] Re-run threshold analysis on the larger subset to check threshold
+  stability.
 
 ## Eval Mode Plumbing
 

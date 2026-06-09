@@ -188,6 +188,21 @@ mean_token_entropy_correct_median=0.1679
 mean_token_entropy_incorrect_median=0.4746
 ```
 
+Generation-logit threshold sweep:
+
+```text
+artifacts/smoke/generation_logit/qwen7b_balanced_5pc/threshold_sweep.json
+target_retained_accuracy=0.70
+```
+
+| Metric | Threshold | Coverage | Retained accuracy | Routing load | Error capture |
+|---|---:|---:|---:|---:|---:|
+| first_token_prob | 0.9136 | 0.4250 | 0.7059 | 0.5750 | 0.7826 |
+| mean_token_prob | 0.9378 | 0.4250 | 0.7059 | 0.5750 | 0.7826 |
+| mean_token_entropy | 0.2790 | 0.4250 | 0.7059 | 0.5750 | 0.7826 |
+| first_token_logit_margin | 3.0000 | 0.3500 | 0.7143 | 0.6500 | 0.8261 |
+| mean_token_logit_margin | 10.2917 | 0.1250 | 0.8000 | 0.8750 | 0.9565 |
+
 Interpretation:
 
 - Label-likelihood matched generation accuracy on this balanced subset.
@@ -197,6 +212,8 @@ Interpretation:
   visual input is duplicated for each label in the batch.
 - Generation-logit confidence adds no meaningful latency over generation and
   shows a useful smoke-test separation between correct and incorrect examples.
-- The next engineering step is to use generation-logit confidence for
-  abstention/routing analysis before investing in visual-prefix caching for
-  label likelihood.
+- A 70% retained-accuracy threshold is feasible on the smoke subset, but it
+  keeps only 42.5% of clips and routes 57.5% to abstention/fallback.
+- The next engineering step is to collect generation-logit confidence on a
+  larger validation subset before deciding whether these thresholds are stable
+  enough for adaptive routing.
