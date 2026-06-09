@@ -214,6 +214,53 @@ Interpretation:
   shows a useful smoke-test separation between correct and incorrect examples.
 - A 70% retained-accuracy threshold is feasible on the smoke subset, but it
   keeps only 42.5% of clips and routes 57.5% to abstention/fallback.
-- The next engineering step is to collect generation-logit confidence on a
-  larger validation subset before deciding whether these thresholds are stable
-  enough for adaptive routing.
+- The follow-up below tests this on the full KABR validation split.
+
+Full KABR validation generation-logit confidence:
+
+```text
+artifacts/full_eval/generation_logit/qwen7b_kabr_full/
+rows=3981
+accuracy=0.8644
+macro_f1=0.5131
+parsed_rate=1.0000
+latency_median_ms=474.67
+latency_p90_ms=583.93
+```
+
+Full KABR confidence separation:
+
+```text
+first_token_prob_correct_median=0.9515
+first_token_prob_incorrect_median=0.7094
+mean_token_entropy_correct_median=0.1406
+mean_token_entropy_incorrect_median=0.4524
+min_token_logit_margin_correct_median=3.5000
+min_token_logit_margin_incorrect_median=1.3750
+```
+
+Full KABR threshold sweep:
+
+```text
+artifacts/full_eval/generation_logit/qwen7b_kabr_full/threshold_sweep.json
+target_retained_accuracy=0.90
+```
+
+| Metric | Threshold | Coverage | Retained accuracy | Routing load | Error capture |
+|---|---:|---:|---:|---:|---:|
+| mean_token_logprob | -0.2734 | 0.8980 | 0.9046 | 0.1020 | 0.3685 |
+| first_token_prob | 0.6295 | 0.8980 | 0.9029 | 0.1020 | 0.3574 |
+| mean_token_prob | 0.7850 | 0.8980 | 0.9027 | 0.1020 | 0.3556 |
+| first_token_logit_margin | 1.0000 | 0.8915 | 0.9048 | 0.1085 | 0.3741 |
+| mean_token_entropy | 0.5511 | 0.8777 | 0.9004 | 0.1223 | 0.3556 |
+
+Full-validation interpretation:
+
+- The full KABR result is more favorable than the 40-clip smoke because the
+  full split reflects the real class distribution and has a much higher base
+  accuracy.
+- Generation-logit confidence can raise retained accuracy from 86.4% to about
+  90.5% while routing about 10.2% of clips.
+- This is a viable adaptive-routing candidate: route low-confidence clips to a
+  stronger fallback, label-likelihood scorer, or manual review, while accepting
+  high-confidence generation outputs directly.

@@ -36,6 +36,18 @@ def load_balanced_rows(path: Path, labels: list[str], samples_per_class: int) ->
     return selected
 
 
+def load_rows(path: Path, max_samples: int | None = None) -> list[dict]:
+    rows = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            rows.append(json.loads(line))
+            if max_samples is not None and len(rows) >= max_samples:
+                break
+    return rows
+
+
 def extract_kabr_label(text: str) -> str | None:
     matched = match_candidate(text, BEHAVIOR_LABELS)
     if matched is not None:
@@ -161,19 +173,44 @@ def main() -> None:
     parser.add_argument("--val-jsonl", default="data/processed/kabr_behavior_val_cleaned.jsonl")
     parser.add_argument("--model-id", default="Qwen/Qwen2.5-VL-7B-Instruct")
     parser.add_argument("--adapter-path", default="artifacts/runs/qwen25vl7b_behavior_lora_full/checkpoint")
-    parser.add_argument("--samples-per-class", type=int, default=5)
+    parser.add_argument("--samples-per-class", type=int, default=5, help="Use <=0 to evaluate rows in file order.")
+    parser.add_argument("--max-samples", type=int, default=None, help="Optional row limit when --samples-per-class <=0.")
     parser.add_argument("--max-new-tokens", type=int, default=16)
     parser.add_argument("--output-jsonl", required=True)
+    parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
 
-    rows = load_balanced_rows(Path(args.val_jsonl), BEHAVIOR_LABELS, args.samples_per_class)
+    if args.samples_per_class > 0:
+        rows = load_balanced_rows(Path(args.val_jsonl), BEHAVIOR_LABELS, args.samples_per_class)
+    else:
+        rows = load_rows(Path(args.val_jsonl), max_samples=args.max_samples)
     output_path = Path(args.output_jsonl)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    scorer = QwenGenerationLogitScorer.from_adapter(args.model_id, args.adapter_path)
+    done_ids: set[str] = set()
     records = []
-    with output_path.open("w", encoding="utf-8") as handle:
-        for idx, row in enumerate(rows, start=1):
+    if args.resume and output_path.exists():
+        with output_path.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                record_id = record.get("id")
+                if isinstance(record_id, str):
+                    done_ids.add(record_id)
+                    records.append(record)
+        print(f"resume: loaded {len(done_ids)} existing rows from {output_path}", flush=True)
+    pending_rows = [row for row in rows if row.get("id") not in done_ids]
+    print(f"loaded={len(rows)} pending={len(pending_rows)}", flush=True)
+
+    scorer = QwenGenerationLogitScorer.from_adapter(args.model_id, args.adapter_path)
+    mode = "a" if args.resume else "w"
+    with output_path.open(mode, encoding="utf-8") as handle:
+        for idx, row in enumerate(pending_rows, start=1):
             gold = row.get("answer") or row.get("metadata", {}).get("behavior")
             t0 = time.perf_counter()
             result = scorer.generate_with_confidence(
@@ -198,9 +235,9 @@ def main() -> None:
             handle.write(json.dumps(record, ensure_ascii=True) + "\n")
             handle.flush()
             records.append(record)
-            if idx % 10 == 0 or idx == len(rows):
+            if idx % 10 == 0 or idx == len(pending_rows):
                 acc = sum(1 for item in records if item["correct"]) / len(records)
-                print(f"[{idx}/{len(rows)}] accuracy_so_far={acc:.4f}", flush=True)
+                print(f"[{idx}/{len(pending_rows)}] total={len(records)} accuracy_so_far={acc:.4f}", flush=True)
 
     metrics = compute_metrics(records)
     metrics_path = Path(str(output_path) + ".metrics.json")

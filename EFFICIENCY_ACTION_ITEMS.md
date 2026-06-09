@@ -110,9 +110,11 @@
   incorrect predictions on the 40-clip smoke subset.
 - [x] Evaluate generation-logit confidence thresholds for abstention or routing
   on the 40-clip smoke subset.
-- [ ] Collect generation-logit confidence on a larger validation subset.
-- [ ] Re-run threshold analysis on the larger subset to check threshold
+- [x] Collect generation-logit confidence on the full KABR validation split.
+- [x] Re-run threshold analysis on the full KABR validation split to check
   stability.
+- [ ] Implement an adaptive-routing evaluator using the selected confidence
+  threshold.
 
 ## Eval Mode Plumbing
 
