@@ -160,6 +160,16 @@
 - [x] Validate BaboonLand prediction-set fallback assignment with deterministic
   half-splits.
 - [x] Materialize the tuned BaboonLand prediction-set fallback system.
+- [x] Add a class-balanced MiniCPM BaboonLand LoRA config.
+- [x] Submit class-balanced MiniCPM BaboonLand LoRA training job.
+  - Slurm job: `1411581` (`minicpm-bbl-classbal`)
+  - Logs: `logs/minicpm-bbl-classbal.1411581.out`,
+    `logs/minicpm-bbl-classbal.1411581.err`
+- [ ] Monitor class-balanced MiniCPM BaboonLand job to completion.
+- [ ] Evaluate class-balanced MiniCPM BaboonLand on the full BaboonLand
+  validation split.
+- [ ] Compare class-balanced MiniCPM BaboonLand as a fallback specialist in the
+  tuned BaboonLand prediction-set cascade.
 - [ ] Train or select a stronger/lightweight BaboonLand rare-class specialist;
   tuned MiniCPM fallback improves macro F1 but routes most rows, so it is not
   yet a latency-saving cascade.
