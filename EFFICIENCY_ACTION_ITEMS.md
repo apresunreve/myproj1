@@ -126,14 +126,23 @@
 - [x] Evaluate MiniCPM KABR LoRA as a fallback on the balanced routed subset.
 - [x] Evaluate Qwen label-likelihood as a stronger fallback on the balanced
   routed subset.
-- [ ] Evaluate a rare-class-specific fallback for Auto-Groom and
+- [x] Evaluate a rare-class-specific fallback for Auto-Groom and
   Trot.
 - [x] Inspect/train-data support and prompts for Auto-Groom and Trot; generic
   fallback models are not recovering these classes.
 - [x] Submit class-balanced MiniCPM KABR LoRA training job.
-- [ ] Monitor class-balanced MiniCPM job and evaluate on full KABR validation.
-- [ ] Compare class-balanced MiniCPM rare-label recall against standard MiniCPM
+- [x] Monitor class-balanced MiniCPM job and evaluate on full KABR validation.
+- [x] Compare class-balanced MiniCPM rare-label recall against standard MiniCPM
   and Qwen adaptive routing.
+- [ ] Build a routing policy that uses class-balanced MiniCPM only as a
+  rare-class specialist, not as the default full-dataset predictor.
+- [x] Evaluate class-balanced MiniCPM as fallback on the balanced Qwen routed
+  subset.
+- [x] Evaluate a rare-specialist cascade: Qwen generation accepts high
+  confidence rows, class-balanced MiniCPM handles rare-ambiguity rows, and
+  standard MiniCPM handles generic low-confidence rows.
+- [ ] Tune routing decision assignment because Trot recovery needs
+  class-balanced fallback on some low-confidence rows too.
 - [ ] Validate the selected routing rule on another split or dataset before
   treating thresholds as stable.
 

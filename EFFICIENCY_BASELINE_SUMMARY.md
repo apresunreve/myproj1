@@ -408,3 +408,73 @@ job_name=minicpm-kabr-classbal
 config=configs/minicpm_v46_behavior_lora_class_balanced_full.yaml
 output=artifacts/runs/minicpm_v46_behavior_lora_class_balanced_full/checkpoint
 ```
+
+Class-balanced MiniCPM completed successfully and was evaluated on the full
+KABR validation split:
+
+```text
+artifacts/full_eval/minicpm_v46_class_balanced/kabr_predictions.jsonl.metrics.json
+rows=3981
+accuracy=0.8237
+macro_f1=0.6083
+parsed_rate=1.0000
+latency_median_ms=254.32
+latency_p90_ms=320.20
+```
+
+| Model | Accuracy | Macro F1 | Auto-Groom recall/F1 | Trot recall/F1 | Occluded recall/F1 |
+|---|---:|---:|---:|---:|---:|
+| Standard MiniCPM KABR LoRA | 0.8664 | 0.5162 | 0.0000 / 0.0000 | 0.0000 / 0.0000 | 0.1084 / 0.1765 |
+| Class-balanced MiniCPM KABR LoRA | 0.8237 | 0.6083 | 0.3143 / 0.1606 | 0.7000 / 0.4861 | 0.4337 / 0.4000 |
+
+Interpretation:
+
+- Class-balanced sampling recovers rare classes that the standard MiniCPM and
+  Qwen generation baselines mostly miss.
+- The gain comes with many false positives: Auto-Groom has 11 true positives
+  and 91 false positives; Trot has 35 true positives and 59 false positives.
+- Overall accuracy drops by 4.27 points compared with standard MiniCPM, while
+  macro F1 improves by 9.21 points.
+- The class-balanced adapter is therefore a better rare-class specialist than
+  a replacement default predictor. The next routing experiment should use it
+  only on rare-ambiguity or routed rows, then compare against standard MiniCPM
+  for generic low-confidence rows.
+
+Adaptive fallback with class-balanced MiniCPM:
+
+```text
+artifacts/full_eval/adaptive_fallback/qwen_balanced_minicpm_class_balanced_system/metrics.json
+```
+
+Using class-balanced MiniCPM on all 775 rows routed by the balanced rare
+fallback policy gives:
+
+| System | Accuracy | Macro F1 | Fallback accuracy | Median ms | P90 ms |
+|---|---:|---:|---:|---:|---:|
+| Qwen + standard MiniCPM fallback | 0.8744 | 0.5323 | 0.6387 | 491.65 | 768.71 |
+| Qwen + class-balanced MiniCPM fallback | 0.8681 | 0.6309 | 0.6065 | 491.69 | 761.21 |
+
+The class-balanced fallback loses 0.63 accuracy points compared with standard
+MiniCPM fallback, but improves macro F1 by 9.86 points. It recovers rare-class
+F1 in the combined system: Auto-Groom 0.1000, Trot 0.5200, Occluded 0.3529.
+
+Dual MiniCPM fallback experiment:
+
+```text
+artifacts/full_eval/adaptive_fallback/qwen_balanced_dual_minicpm_system/metrics.json
+```
+
+The dual system used standard MiniCPM for `route_low_confidence` rows and
+class-balanced MiniCPM for `route_rare_ambiguity` rows:
+
+```text
+accuracy=0.8674
+macro_f1=0.5508
+low_conf_fallback_accuracy=0.5887
+rare_fallback_accuracy=0.6179
+```
+
+This is worse than using class-balanced MiniCPM for all routed rows. The reason
+is that Trot recovery needs class-balanced fallback on some low-confidence rows
+too; the current routing reason split is not specific enough to decide fallback
+model choice.
