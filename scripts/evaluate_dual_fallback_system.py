@@ -46,6 +46,7 @@ def build_records(
     routing_rows: dict[str, dict[str, Any]],
     low_conf_rows: dict[str, dict[str, Any]],
     rare_rows: dict[str, dict[str, Any]],
+    rare_fallback_qwen_predictions: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     records = []
     for row_id, routing_row in routing_rows.items():
@@ -57,6 +58,12 @@ def build_records(
             pred = routing_row.get("prediction")
             text = routing_row.get("pred_text")
             source = "qwen_accept"
+        elif rare_fallback_qwen_predictions is not None:
+            use_rare = routing_row.get("prediction") in rare_fallback_qwen_predictions
+            fallback_row = (rare_rows if use_rare else low_conf_rows).get(row_id)
+            pred, text = prediction(fallback_row)
+            fallback_latency = latency(fallback_row)
+            source = "rare_fallback" if use_rare else "low_conf_fallback"
         elif decision == "route_low_confidence":
             fallback_row = low_conf_rows.get(row_id)
             pred, text = prediction(fallback_row)
@@ -153,6 +160,16 @@ def main() -> None:
     parser.add_argument("--routing-jsonl", required=True)
     parser.add_argument("--low-confidence-fallback-jsonl", required=True)
     parser.add_argument("--rare-fallback-jsonl", required=True)
+    parser.add_argument(
+        "--rare-fallback-qwen-predictions",
+        nargs="*",
+        help=(
+            "If set, choose the rare fallback for routed rows whose original "
+            "Qwen prediction is in this label list; otherwise choose the "
+            "low-confidence fallback. By default, fallback choice follows "
+            "rare_fallback_route_decision."
+        ),
+    )
     parser.add_argument("--output-jsonl", required=True)
     parser.add_argument("--output-metrics-json", required=True)
     args = parser.parse_args()
@@ -161,6 +178,7 @@ def main() -> None:
         load_jsonl_by_id(Path(args.routing_jsonl)),
         load_jsonl_by_id(Path(args.low_confidence_fallback_jsonl)),
         load_jsonl_by_id(Path(args.rare_fallback_jsonl)),
+        set(args.rare_fallback_qwen_predictions) if args.rare_fallback_qwen_predictions is not None else None,
     )
     metrics = compute_metrics(records)
 

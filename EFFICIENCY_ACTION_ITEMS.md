@@ -141,8 +141,10 @@
 - [x] Evaluate a rare-specialist cascade: Qwen generation accepts high
   confidence rows, class-balanced MiniCPM handles rare-ambiguity rows, and
   standard MiniCPM handles generic low-confidence rows.
-- [ ] Tune routing decision assignment because Trot recovery needs
+- [x] Tune routing decision assignment because Trot recovery needs
   class-balanced fallback on some low-confidence rows too.
+- [ ] Validate the tuned prediction-set fallback policy off this validation
+  split before treating it as a stable result.
 - [ ] Validate the selected routing rule on another split or dataset before
   treating thresholds as stable.
 

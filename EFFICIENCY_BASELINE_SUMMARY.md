@@ -478,3 +478,27 @@ This is worse than using class-balanced MiniCPM for all routed rows. The reason
 is that Trot recovery needs class-balanced fallback on some low-confidence rows
 too; the current routing reason split is not specific enough to decide fallback
 model choice.
+
+Tuned fallback model assignment:
+
+```text
+artifacts/full_eval/adaptive_fallback/qwen_balanced_predset_minicpm_system/metrics.json
+```
+
+A small validation-set sweep over Qwen's routed-row predicted label found that
+class-balanced MiniCPM is most useful when the original Qwen prediction is one
+of `Walk`, `Graze`, `Browse`, or `Run`. Standard MiniCPM is used for the other
+routed rows.
+
+| System | Accuracy | Macro F1 | Rare fallback rows | Standard fallback rows | Median ms | P90 ms |
+|---|---:|---:|---:|---:|---:|---:|
+| Qwen + standard MiniCPM fallback | 0.8744 | 0.5323 | 0 | 775 | 491.65 | 768.71 |
+| Qwen + class-balanced MiniCPM fallback | 0.8681 | 0.6309 | 775 | 0 | 491.69 | 761.21 |
+| Qwen + tuned MiniCPM fallback assignment | 0.8716 | 0.6354 | 430 | 345 | 491.61 | 769.02 |
+
+The tuned assignment is the best current validation result for macro F1 while
+recovering some accuracy relative to class-balanced fallback on all routed
+rows. Per-class F1 in the tuned system is Auto-Groom 0.1224, Trot 0.5417, and
+Occluded 0.3485. Because the assignment was tuned on this validation split, it
+needs validation on another split or dataset before being treated as a stable
+policy.
