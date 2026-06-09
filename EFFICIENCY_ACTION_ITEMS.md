@@ -121,8 +121,11 @@
   rare-label error capture useful.
 - [x] Materialize row-level routing outputs for balanced and rare-capture
   fallback policies.
-- [ ] Compare adaptive routing against a concrete fallback model/scorer on the
+- [x] Compare adaptive routing against a concrete fallback model/scorer on the
   routed subset.
+- [x] Evaluate MiniCPM KABR LoRA as a fallback on the balanced routed subset.
+- [ ] Evaluate a stronger or rare-class-specific fallback for Auto-Groom and
+  Trot.
 - [ ] Validate the selected routing rule on another split or dataset before
   treating thresholds as stable.
 

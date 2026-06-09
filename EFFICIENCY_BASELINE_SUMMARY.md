@@ -337,3 +337,25 @@ errors: `Graze`, `Walk`, and `Head Up`.
 Recommended first operating point: balanced rare fallback. It roughly doubles
 routing load compared with confidence-only routing, but raises accepted
 accuracy from 90.5% to 93.1% and routes 320 of 540 total errors.
+
+Concrete fallback comparison: MiniCPM on balanced routed subset
+
+```text
+artifacts/full_eval/adaptive_fallback/minicpm_on_qwen_balanced_routed/
+artifacts/full_eval/adaptive_fallback/qwen_balanced_minicpm_system/
+```
+
+MiniCPM KABR LoRA was evaluated only on the 775 clips routed by the balanced
+rare fallback policy.
+
+| Component | Rows | Accuracy | Macro F1 | Median ms | Notes |
+|---|---:|---:|---:|---:|---|
+| Qwen accepted set | 3206 | 0.9314 | NA | NA | accepted by routing policy |
+| MiniCPM on routed set | 775 | 0.6387 | 0.4332 | 264.37 | fallback only |
+| Qwen + MiniCPM adaptive system | 3981 | 0.8744 | 0.5323 | 491.65 | Qwen latency plus fallback for routed rows |
+
+Compared with Qwen generation alone, the adaptive system improves accuracy
+from 0.8644 to 0.8744 and macro F1 from 0.5131 to 0.5323. This is a modest
+gain. MiniCPM improves some routed cases but still has 0 F1 for Auto-Groom and
+Trot on the routed subset, so it is not a sufficient rare-class fallback by
+itself.
