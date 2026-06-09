@@ -157,9 +157,12 @@
 - [x] Sweep BaboonLand prediction-specific entropy routing thresholds.
 - [x] Evaluate BaboonLand Qwen + MiniCPM systems with prediction-specific
   rare/confusion routing.
-- [ ] Train or select a stronger BaboonLand rare-class specialist; generic
-  MiniCPM fallback improves macro F1 slightly but still does not beat full
-  MiniCPM macro F1.
+- [x] Validate BaboonLand prediction-set fallback assignment with deterministic
+  half-splits.
+- [x] Materialize the tuned BaboonLand prediction-set fallback system.
+- [ ] Train or select a stronger/lightweight BaboonLand rare-class specialist;
+  tuned MiniCPM fallback improves macro F1 but routes most rows, so it is not
+  yet a latency-saving cascade.
 - [ ] Validate the KABR tuned rare-fallback model assignment on another split
   before treating it as stable.
 - [ ] Validate the KABR rare-class routing thresholds on another split before

@@ -608,6 +608,8 @@ artifacts/full_eval/generation_logit/qwen3b_baboonland_b2/prediction_entropy_rar
 artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy_predrare035_minicpm/metrics.json
 artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy_predrare040_minicpm/metrics.json
 artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy_predrare045_minicpm/metrics.json
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_predset_minicpm_split_validation.json
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_predset_split_tuned_minicpm/metrics.json
 ```
 
 At the entropy-0.85 operating point, 380 of 671 accepted errors are rare-label
@@ -633,16 +635,31 @@ The first sweep focused on `Sitting/Standing`, `Occluded`, and
 | + prediction entropy route <=35% | 0.7706 | 0.4134 | 4030 | 2168 | 0.5950 |
 | + prediction entropy route <=40% | 0.7701 | 0.4132 | 3723 | 2475 | 0.6040 |
 | + prediction entropy route <=45% | 0.7699 | 0.4198 | 3412 | 2786 | 0.6321 |
+| + tuned prediction-set fallback | 0.7717 | 0.4283 | 645 | 5553 | 0.7697 |
 | MiniCPM BaboonLand generation | 0.7712 | 0.4236 | 0 | 6198 | NA |
+
+The tuned prediction-set policy routes entropy-low-confidence rows plus
+accepted Qwen rows predicted as `Being Groomed`, `Grooming Somebody`,
+`Sitting/Standing`, `Sleeping`, or `Walking/Running` to MiniCPM. A deterministic
+20-split half-split validation selected similar but not identical policies:
+
+```text
+tuned_full_policy=Being Groomed,Grooming Somebody,Sitting/Standing,Sleeping,Walking/Running
+tuned_full_accuracy=0.7717
+tuned_full_macro_f1=0.4283
+holdout_accuracy_mean=0.7730
+holdout_macro_f1_mean=0.4223
+holdout_macro_f1_range=0.3986..0.4616
+```
 
 Interpretation:
 
 - Prediction-specific entropy routing helps the macro-F1 objective by routing
   more rare/confusing BaboonLand clips to MiniCPM.
-- The best tested macro-F1 point is the <=45% route policy at 0.4198 macro F1,
-  up from 0.4068 for entropy-only adaptive fallback.
-- It still does not beat full MiniCPM macro F1, and it loses accuracy relative
-  to entropy-only adaptive fallback. The next useful work is not more generic
-  routing with the same fallback; it is a stronger BaboonLand rare-class
-  specialist or a fallback assignment policy that only routes to MiniCPM where
-  MiniCPM is empirically better.
+- The tuned prediction-set fallback is the best current BaboonLand macro-F1
+  result at 0.4283, up from 0.4068 for entropy-only adaptive fallback and
+  0.4236 for full MiniCPM generation.
+- This is not yet a latency-saving cascade: it routes 5553 of 6198 rows to
+  MiniCPM. The result is useful as a fallback-assignment signal, but the next
+  efficiency step needs a stronger/lightweight rare-class specialist or a more
+  selective policy with lower fallback load.
