@@ -52,8 +52,8 @@ def build_system_records(routing_rows: dict[str, dict[str, Any]], fallback_rows:
                 pred_text = "__missing_fallback__"
                 fallback_latency = None
             else:
-                prediction = fallback_row.get("pred_label")
-                pred_text = fallback_row.get("pred_text")
+                prediction = fallback_row.get("pred_label") or fallback_row.get("prediction")
+                pred_text = fallback_row.get("pred_text") or prediction
                 fallback_latency = _latency(fallback_row)
             source = "fallback"
         total_latency = None

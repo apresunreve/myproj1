@@ -359,3 +359,23 @@ from 0.8644 to 0.8744 and macro F1 from 0.5131 to 0.5323. This is a modest
 gain. MiniCPM improves some routed cases but still has 0 F1 for Auto-Groom and
 Trot on the routed subset, so it is not a sufficient rare-class fallback by
 itself.
+
+Concrete fallback comparison: Qwen label likelihood on balanced routed subset
+
+```text
+artifacts/full_eval/adaptive_fallback/qwen_label_likelihood_on_balanced_routed/
+artifacts/full_eval/adaptive_fallback/qwen_balanced_label_likelihood_system/
+```
+
+Qwen label-likelihood was also evaluated only on the 775 clips routed by the
+balanced rare fallback policy.
+
+| Component | Rows | Accuracy | Macro F1 | Median ms | Notes |
+|---|---:|---:|---:|---:|---|
+| Qwen label likelihood on routed set | 775 | 0.5574 | 0.3783 | 3043.22 | 8-label sequential scoring |
+| Qwen + label-likelihood adaptive system | 3981 | 0.8586 | 0.5201 | 494.86 | P90 latency 3511.58 ms |
+
+This is a negative result. Label likelihood is worse than MiniCPM on the routed
+subset, worse than Qwen generation alone when used as fallback, and much slower
+on routed clips. It does recover 1 Trot example, but still misses Auto-Groom
+entirely.

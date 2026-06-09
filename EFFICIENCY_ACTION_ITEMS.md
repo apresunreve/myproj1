@@ -124,8 +124,12 @@
 - [x] Compare adaptive routing against a concrete fallback model/scorer on the
   routed subset.
 - [x] Evaluate MiniCPM KABR LoRA as a fallback on the balanced routed subset.
-- [ ] Evaluate a stronger or rare-class-specific fallback for Auto-Groom and
+- [x] Evaluate Qwen label-likelihood as a stronger fallback on the balanced
+  routed subset.
+- [ ] Evaluate a rare-class-specific fallback for Auto-Groom and
   Trot.
+- [ ] Inspect/train-data support and prompts for Auto-Groom and Trot; generic
+  fallback models are not recovering these classes.
 - [ ] Validate the selected routing rule on another split or dataset before
   treating thresholds as stable.
 
