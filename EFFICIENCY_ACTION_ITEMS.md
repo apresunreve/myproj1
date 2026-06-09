@@ -115,8 +115,10 @@
   stability.
 - [x] Implement an adaptive-routing evaluator using the selected confidence
   threshold.
-- [ ] Design rare-class-aware fallback for confidently wrong Auto-Groom, Trot,
+- [x] Design rare-class-aware fallback for confidently wrong Auto-Groom, Trot,
   and Occluded cases.
+- [ ] Tune rare-class fallback thresholds to reduce routing load while keeping
+  rare-label error capture useful.
 
 ## Eval Mode Plumbing
 

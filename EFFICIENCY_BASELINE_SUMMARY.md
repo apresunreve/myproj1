@@ -284,3 +284,35 @@ routing 10.2% of clips. Per-class routing shows an important limitation:
 confidence routing does not fix rare classes by itself. Accepted Auto-Groom
 and Trot examples still have 0% accepted accuracy, so the next fallback should
 target rare-class confusion explicitly, not only generic uncertainty.
+
+Rare-class error analysis:
+
+```text
+artifacts/full_eval/generation_logit/qwen7b_kabr_full/routing_error_analysis.json
+```
+
+Accepted rare-label errors are 115 of 341 accepted errors, or 33.7%.
+The largest confidently accepted rare-label failures are:
+
+| Gold | Predicted | Accepted errors | Median mean-token logprob |
+|---|---|---:|---:|
+| Occluded | Graze | 55 | -0.0737 |
+| Auto-Groom | Graze | 18 | -0.0868 |
+| Trot | Walk | 17 | -0.1120 |
+| Auto-Groom | Head Up | 10 | -0.1113 |
+
+Rare-class-aware routing simulation:
+
+```text
+artifacts/full_eval/generation_logit/qwen7b_kabr_full/rare_class_routing_sim.metrics.json
+```
+
+| Routing policy | Coverage | Routing load | Accepted accuracy | Errors routed | Error capture |
+|---|---:|---:|---:|---:|---:|
+| Confidence only | 0.8980 | 0.1020 | 0.9046 | 199 | 0.3685 |
+| Confidence + rare-class ambiguity | 0.6707 | 0.3293 | 0.9554 | 421 | 0.7796 |
+
+The rare-class rule catches 112 rare-label errors and reduces accepted
+rare-label errors from 115 to 51, but it routes 905 additional clips. This is
+useful if the fallback path is cheap or high-value; otherwise it needs a less
+aggressive operating point.
