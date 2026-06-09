@@ -128,8 +128,12 @@
   routed subset.
 - [ ] Evaluate a rare-class-specific fallback for Auto-Groom and
   Trot.
-- [ ] Inspect/train-data support and prompts for Auto-Groom and Trot; generic
+- [x] Inspect/train-data support and prompts for Auto-Groom and Trot; generic
   fallback models are not recovering these classes.
+- [x] Submit class-balanced MiniCPM KABR LoRA training job.
+- [ ] Monitor class-balanced MiniCPM job and evaluate on full KABR validation.
+- [ ] Compare class-balanced MiniCPM rare-label recall against standard MiniCPM
+  and Qwen adaptive routing.
 - [ ] Validate the selected routing rule on another split or dataset before
   treating thresholds as stable.
 

@@ -379,3 +379,32 @@ This is a negative result. Label likelihood is worse than MiniCPM on the routed
 subset, worse than Qwen generation alone when used as fallback, and much slower
 on routed clips. It does recover 1 Trot example, but still misses Auto-Groom
 entirely.
+
+Rare-class support diagnosis:
+
+```text
+artifacts/full_eval/generation_logit/qwen7b_kabr_full/class_support_analysis.json
+```
+
+KABR class support is extremely imbalanced:
+
+| Class | Train rows | Train share | Val rows | Val share | Qwen full recall | MiniCPM routed recall |
+|---|---:|---:|---:|---:|---:|---:|
+| Auto-Groom | 94 | 0.0085 | 35 | 0.0088 | 0.0000 | 0.0000 |
+| Trot | 185 | 0.0168 | 50 | 0.0126 | 0.0000 | 0.0000 |
+| Occluded | 220 | 0.0200 | 83 | 0.0208 | 0.0602 | 0.2258 |
+| Walk | 3630 | 0.3299 | 1303 | 0.3273 | 0.9010 | 0.6789 |
+| Graze | 3398 | 0.3088 | 1377 | 0.3459 | 0.9397 | 0.7785 |
+
+The processed KABR train and validation files use one prompt template, so this
+does not look like a prompt-variant issue. The dominant problem is label prior:
+Auto-Groom and Trot are less than 2% of train data, and current models almost
+never emit those labels. A class-balanced MiniCPM KABR LoRA job was submitted
+to test whether balanced sampling can recover rare-label recall:
+
+```text
+job_id=1408372
+job_name=minicpm-kabr-classbal
+config=configs/minicpm_v46_behavior_lora_class_balanced_full.yaml
+output=artifacts/runs/minicpm_v46_behavior_lora_class_balanced_full/checkpoint
+```
