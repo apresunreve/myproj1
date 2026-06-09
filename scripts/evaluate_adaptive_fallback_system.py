@@ -34,13 +34,30 @@ def _latency(row: dict[str, Any]) -> float | None:
     return None
 
 
-def build_system_records(routing_rows: dict[str, dict[str, Any]], fallback_rows: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+def infer_labels(records: list[dict[str, Any]]) -> list[str]:
+    labels = []
+    seen = set()
+    for row in records:
+        for key in ("gold_label", "prediction"):
+            value = row.get(key)
+            if isinstance(value, str) and value not in seen:
+                seen.add(value)
+                labels.append(value)
+    return labels
+
+
+def build_system_records(
+    routing_rows: dict[str, dict[str, Any]],
+    fallback_rows: dict[str, dict[str, Any]],
+    route_decision_field: str,
+    accept_value: str,
+) -> list[dict[str, Any]]:
     records = []
     for row_id, routing_row in routing_rows.items():
-        decision = routing_row.get("rare_fallback_route_decision")
+        decision = routing_row.get(route_decision_field)
         gold = routing_row.get("gold_label")
         qwen_latency = _latency(routing_row)
-        if decision == "accept":
+        if decision == accept_value:
             prediction = routing_row.get("prediction")
             pred_text = routing_row.get("pred_text")
             source = "qwen_accept"
@@ -76,7 +93,7 @@ def build_system_records(routing_rows: dict[str, dict[str, Any]], fallback_rows:
     return records
 
 
-def compute_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
+def compute_metrics(records: list[dict[str, Any]], labels: list[str]) -> dict[str, Any]:
     n_total = len(records)
     n_correct = sum(1 for row in records if row["correct"])
     pred_counts = Counter(row["prediction"] or "__missing__" for row in records)
@@ -97,7 +114,7 @@ def compute_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
 
     per_class_f1 = {}
     f1_values = []
-    for label in KABR_CLASSES:
+    for label in labels:
         stats = per_class[label]
         tp, fp, fn = stats["tp"], stats["fp"], stats["fn"]
         denom = 2 * tp + fp + fn
@@ -147,12 +164,17 @@ def main() -> None:
     parser.add_argument("--fallback-jsonl", required=True)
     parser.add_argument("--output-jsonl", required=True)
     parser.add_argument("--output-metrics-json", required=True)
+    parser.add_argument("--route-decision-field", default="rare_fallback_route_decision")
+    parser.add_argument("--accept-value", default="accept")
+    parser.add_argument("--labels", default="auto", help="Use 'auto' or comma-separated labels.")
     args = parser.parse_args()
 
     routing_rows = load_jsonl_by_id(Path(args.routing_jsonl))
     fallback_rows = load_jsonl_by_id(Path(args.fallback_jsonl))
-    records = build_system_records(routing_rows, fallback_rows)
-    metrics = compute_metrics(records)
+    records = build_system_records(routing_rows, fallback_rows, args.route_decision_field, args.accept_value)
+    labels = infer_labels(records) if args.labels == "auto" else [item.strip() for item in args.labels.split(",") if item.strip()]
+    metrics = compute_metrics(records, labels)
+    metrics["labels"] = labels
 
     output_jsonl = Path(args.output_jsonl)
     output_jsonl.parent.mkdir(parents=True, exist_ok=True)

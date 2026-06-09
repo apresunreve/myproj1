@@ -576,3 +576,26 @@ Interpretation:
   point, accepted accuracy remains 0 for Mounting, Mutual Grooming, and
   Sleeping. BaboonLand would need its own rare-class routing/fallback policy
   rather than reusing the KABR rare-class thresholds directly.
+
+BaboonLand real fallback check:
+
+```text
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy_080_minicpm/metrics.json
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy_085_minicpm/metrics.json
+```
+
+Existing full MiniCPM BaboonLand predictions were used as the fallback for
+Qwen-routed rows.
+
+| System | Accuracy | Macro F1 | Accepted rows | Fallback rows | Fallback accuracy |
+|---|---:|---:|---:|---:|---:|
+| Qwen3B B2 generation | 0.7525 | 0.3771 | 6198 | 0 | NA |
+| MiniCPM BaboonLand generation | 0.7712 | 0.4236 | 0 | 6198 | NA |
+| Qwen entropy 0.80 + MiniCPM fallback | 0.7648 | 0.3879 | 5439 | 759 | 0.4690 |
+| Qwen entropy 0.85 + MiniCPM fallback | 0.7725 | 0.4068 | 4554 | 1644 | 0.5505 |
+
+The 0.85 routing point slightly improves accuracy over both individual
+generation baselines, but it does not beat MiniCPM's macro F1. This suggests
+that BaboonLand fallback selection should be class-aware too: generic
+confidence routing helps identify hard clips, but the fallback model does not
+uniformly improve rare-class behavior.

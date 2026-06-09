@@ -149,6 +149,8 @@
   split before treating it as a stable result.
 - [x] Validate generation-logit confidence routing on another dataset
   (BaboonLand Qwen2.5-VL-3B).
+- [x] Evaluate MiniCPM BaboonLand as a real fallback for BaboonLand
+  confidence-routed Qwen rows.
 - [ ] Validate the KABR tuned rare-fallback model assignment on another split
   before treating it as stable.
 - [ ] Validate the KABR rare-class routing thresholds on another split before
