@@ -528,3 +528,51 @@ idea that class-balanced MiniCPM should be used on only a subset of routed
 Qwen prediction labels, especially Graze/Walk/Run-like confusions. It is still
 an internal split of the same validation set, so the next stronger check is a
 true held-out split or another dataset.
+
+## BaboonLand Confidence-Routing Validation
+
+The Qwen generation-logit evaluator was generalized to infer the closed-set
+labels from the input JSONL. This allowed the same confidence-routing analysis
+to run on BaboonLand with the Qwen2.5-VL-3B B2 inv-sqrt LoRA adapter.
+
+```text
+artifacts/full_eval/generation_logit/qwen3b_baboonland_b2/full_predictions.jsonl.metrics.json
+rows=6198
+accuracy=0.7525
+macro_f1=0.3771
+parsed_rate=1.0000
+latency_median_ms=487.88
+latency_p90_ms=626.61
+```
+
+Confidence still separates correct from incorrect predictions:
+
+```text
+first_token_prob_correct_median=0.9496
+first_token_prob_incorrect_median=0.6999
+mean_token_entropy_correct_median=0.0743
+mean_token_entropy_incorrect_median=0.2417
+```
+
+Threshold sweeps:
+
+```text
+artifacts/full_eval/generation_logit/qwen3b_baboonland_b2/threshold_sweep_080.json
+artifacts/full_eval/generation_logit/qwen3b_baboonland_b2/threshold_sweep_085.json
+```
+
+| Target retained acc | Best metric | Threshold | Coverage | Routing load | Retained acc | Error capture |
+|---|---|---:|---:|---:|---:|---:|
+| 0.80 | mean_token_entropy <= | 0.3030 | 0.8775 | 0.1225 | 0.8060 | 0.3123 |
+| 0.85 | mean_token_entropy <= | 0.2212 | 0.7348 | 0.2652 | 0.8527 | 0.5626 |
+
+Interpretation:
+
+- The confidence-routing mechanism transfers beyond KABR: low generation
+  entropy identifies a substantially cleaner accepted set on BaboonLand.
+- The operating point is dataset-dependent. BaboonLand needs a lower base
+  target than KABR and a larger routing load to reach 85% retained accuracy.
+- Confidence alone still leaves confidently wrong rare classes. At the 0.85
+  point, accepted accuracy remains 0 for Mounting, Mutual Grooming, and
+  Sleeping. BaboonLand would need its own rare-class routing/fallback policy
+  rather than reusing the KABR rare-class thresholds directly.

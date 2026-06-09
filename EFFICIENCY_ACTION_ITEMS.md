@@ -147,8 +147,12 @@
   tuned fallback assignment.
 - [ ] Validate the tuned prediction-set fallback policy off this validation
   split before treating it as a stable result.
-- [ ] Validate the selected routing rule on another split or dataset before
-  treating thresholds as stable.
+- [x] Validate generation-logit confidence routing on another dataset
+  (BaboonLand Qwen2.5-VL-3B).
+- [ ] Validate the KABR tuned rare-fallback model assignment on another split
+  before treating it as stable.
+- [ ] Validate the KABR rare-class routing thresholds on another split before
+  treating them as stable.
 
 ## Eval Mode Plumbing
 

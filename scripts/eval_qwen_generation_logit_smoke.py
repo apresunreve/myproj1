@@ -14,7 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from kabr_vlm.efficiency.generation_logits import QwenGenerationLogitScorer  # noqa: E402
-from kabr_vlm.vlm_baselines import BEHAVIOR_LABELS, match_candidate, normalize_text  # noqa: E402
+from kabr_vlm.vlm_baselines import BEHAVIOR_LABELS, extract_label, match_candidate, normalize_text  # noqa: E402
 
 
 def load_balanced_rows(path: Path, labels: list[str], samples_per_class: int) -> list[dict]:
@@ -48,6 +48,26 @@ def load_rows(path: Path, max_samples: int | None = None) -> list[dict]:
     return rows
 
 
+def infer_labels(rows: list[dict]) -> list[str]:
+    labels = []
+    seen = set()
+    for row in rows:
+        label = row.get("answer") or row.get("metadata", {}).get("behavior")
+        if isinstance(label, str) and label not in seen:
+            seen.add(label)
+            labels.append(label)
+    return labels
+
+
+def parse_labels_arg(value: str | None, rows: list[dict]) -> list[str]:
+    if value is None or value.strip().lower() == "auto":
+        return infer_labels(rows)
+    labels = [item.strip() for item in value.split(",") if item.strip()]
+    if not labels:
+        raise ValueError("--labels must be 'auto' or a comma-separated non-empty label list")
+    return labels
+
+
 def extract_kabr_label(text: str) -> str | None:
     matched = match_candidate(text, BEHAVIOR_LABELS)
     if matched is not None:
@@ -70,6 +90,12 @@ def extract_kabr_label(text: str) -> str | None:
     if "occlu" in normalized or "hidden" in normalized or "obscur" in normalized:
         return "Occluded"
     return None
+
+
+def extract_prediction(text: str, labels: list[str]) -> str | None:
+    if labels == BEHAVIOR_LABELS:
+        return extract_kabr_label(text)
+    return extract_label(text, labels)
 
 
 def _safe_mean(values: list[float]) -> float | None:
@@ -114,7 +140,7 @@ def _confidence_metric(records: list[dict], key: str) -> dict:
     }
 
 
-def compute_metrics(records: list[dict]) -> dict:
+def compute_metrics(records: list[dict], labels: list[str]) -> dict:
     n_total = len(records)
     n_correct = sum(1 for row in records if row["correct"])
     n_parsed = sum(1 for row in records if row["prediction"] is not None)
@@ -124,7 +150,7 @@ def compute_metrics(records: list[dict]) -> dict:
     latencies = [float(row["latency_ms"]) for row in records if row.get("latency_ms") is not None]
     per_class = {}
     f1_values = []
-    for label in BEHAVIOR_LABELS:
+    for label in labels:
         tp = tp_counts[label]
         fp = pred_counts[label] - tp
         fn = gold_counts[label] - tp
@@ -173,6 +199,7 @@ def main() -> None:
     parser.add_argument("--val-jsonl", default="data/processed/kabr_behavior_val_cleaned.jsonl")
     parser.add_argument("--model-id", default="Qwen/Qwen2.5-VL-7B-Instruct")
     parser.add_argument("--adapter-path", default="artifacts/runs/qwen25vl7b_behavior_lora_full/checkpoint")
+    parser.add_argument("--labels", default="auto", help="Use 'auto' or a comma-separated closed-set label list.")
     parser.add_argument("--samples-per-class", type=int, default=5, help="Use <=0 to evaluate rows in file order.")
     parser.add_argument("--max-samples", type=int, default=None, help="Optional row limit when --samples-per-class <=0.")
     parser.add_argument("--max-new-tokens", type=int, default=16)
@@ -180,10 +207,12 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
 
+    candidate_rows = load_rows(Path(args.val_jsonl), max_samples=args.max_samples if args.samples_per_class <= 0 else None)
+    labels = parse_labels_arg(args.labels, candidate_rows)
     if args.samples_per_class > 0:
-        rows = load_balanced_rows(Path(args.val_jsonl), BEHAVIOR_LABELS, args.samples_per_class)
+        rows = load_balanced_rows(Path(args.val_jsonl), labels, args.samples_per_class)
     else:
-        rows = load_rows(Path(args.val_jsonl), max_samples=args.max_samples)
+        rows = candidate_rows
     output_path = Path(args.output_jsonl)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -205,7 +234,7 @@ def main() -> None:
                     records.append(record)
         print(f"resume: loaded {len(done_ids)} existing rows from {output_path}", flush=True)
     pending_rows = [row for row in rows if row.get("id") not in done_ids]
-    print(f"loaded={len(rows)} pending={len(pending_rows)}", flush=True)
+    print(f"loaded={len(rows)} pending={len(pending_rows)} labels={labels}", flush=True)
 
     scorer = QwenGenerationLogitScorer.from_adapter(args.model_id, args.adapter_path)
     mode = "a" if args.resume else "w"
@@ -219,7 +248,7 @@ def main() -> None:
                 max_new_tokens=args.max_new_tokens,
             )
             latency_ms = (time.perf_counter() - t0) * 1000.0
-            prediction = extract_kabr_label(result.text)
+            prediction = extract_prediction(result.text, labels)
             record = {
                 "id": row["id"],
                 "inference_mode": "generation_logit_confidence",
@@ -239,7 +268,8 @@ def main() -> None:
                 acc = sum(1 for item in records if item["correct"]) / len(records)
                 print(f"[{idx}/{len(pending_rows)}] total={len(records)} accuracy_so_far={acc:.4f}", flush=True)
 
-    metrics = compute_metrics(records)
+    metrics = compute_metrics(records, labels)
+    metrics["labels"] = labels
     metrics_path = Path(str(output_path) + ".metrics.json")
     metrics_path.write_text(json.dumps(metrics, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     print(
