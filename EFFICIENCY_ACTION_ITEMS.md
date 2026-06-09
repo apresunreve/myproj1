@@ -113,8 +113,10 @@
 - [x] Collect generation-logit confidence on the full KABR validation split.
 - [x] Re-run threshold analysis on the full KABR validation split to check
   stability.
-- [ ] Implement an adaptive-routing evaluator using the selected confidence
+- [x] Implement an adaptive-routing evaluator using the selected confidence
   threshold.
+- [ ] Design rare-class-aware fallback for confidently wrong Auto-Groom, Trot,
+  and Occluded cases.
 
 ## Eval Mode Plumbing
 

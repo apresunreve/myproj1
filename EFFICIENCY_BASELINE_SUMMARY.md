@@ -264,3 +264,23 @@ Full-validation interpretation:
 - This is a viable adaptive-routing candidate: route low-confidence clips to a
   stronger fallback, label-likelihood scorer, or manual review, while accepting
   high-confidence generation outputs directly.
+
+Adaptive routing report:
+
+```text
+artifacts/full_eval/generation_logit/qwen7b_kabr_full/adaptive_routing_mean_logprob.metrics.json
+metric=mean_token_logprob
+threshold=-0.2733916938100265
+direction=higher
+```
+
+| Decision | Rows | Share | Accuracy/Error |
+|---|---:|---:|---:|
+| Accept | 3575 | 0.8980 | accepted_accuracy=0.9046 |
+| Route | 406 | 0.1020 | routed_error_rate=0.4901 |
+
+The route set catches 199 of 540 generation errors, or 36.9% of errors, while
+routing 10.2% of clips. Per-class routing shows an important limitation:
+confidence routing does not fix rare classes by itself. Accepted Auto-Groom
+and Trot examples still have 0% accepted accuracy, so the next fallback should
+target rare-class confusion explicitly, not only generic uncertainty.
