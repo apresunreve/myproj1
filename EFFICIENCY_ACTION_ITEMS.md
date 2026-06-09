@@ -151,6 +151,15 @@
   (BaboonLand Qwen2.5-VL-3B).
 - [x] Evaluate MiniCPM BaboonLand as a real fallback for BaboonLand
   confidence-routed Qwen rows.
+- [x] Analyze BaboonLand accepted rare-label errors after entropy routing.
+- [x] Add a generic prediction-metric routing sweep script for dataset-specific
+  rare/confusion routing.
+- [x] Sweep BaboonLand prediction-specific entropy routing thresholds.
+- [x] Evaluate BaboonLand Qwen + MiniCPM systems with prediction-specific
+  rare/confusion routing.
+- [ ] Train or select a stronger BaboonLand rare-class specialist; generic
+  MiniCPM fallback improves macro F1 slightly but still does not beat full
+  MiniCPM macro F1.
 - [ ] Validate the KABR tuned rare-fallback model assignment on another split
   before treating it as stable.
 - [ ] Validate the KABR rare-class routing thresholds on another split before

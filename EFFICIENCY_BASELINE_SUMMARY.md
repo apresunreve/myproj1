@@ -599,3 +599,50 @@ generation baselines, but it does not beat MiniCPM's macro F1. This suggests
 that BaboonLand fallback selection should be class-aware too: generic
 confidence routing helps identify hard clips, but the fallback model does not
 uniformly improve rare-class behavior.
+
+BaboonLand prediction-specific rare/confusion routing:
+
+```text
+artifacts/full_eval/generation_logit/qwen3b_baboonland_b2/routing_error_analysis_rare_labels.json
+artifacts/full_eval/generation_logit/qwen3b_baboonland_b2/prediction_entropy_rare_routing_sweep_top3.json
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy_predrare035_minicpm/metrics.json
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy_predrare040_minicpm/metrics.json
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy_predrare045_minicpm/metrics.json
+```
+
+At the entropy-0.85 operating point, 380 of 671 accepted errors are rare-label
+errors, or 56.6%. Most are absorbed by common predictions:
+
+| Accepted error prediction | Errors |
+|---|---:|
+| Sitting/Standing | 388 |
+| Occluded | 131 |
+| Walking/Running | 59 |
+| Grooming Somebody | 40 |
+| Being Groomed | 34 |
+
+A generic prediction-metric sweep was added in
+`scripts/sweep_prediction_metric_routing.py`. For BaboonLand, it routes extra
+accepted rows when selected prediction labels have high generation entropy.
+The first sweep focused on `Sitting/Standing`, `Occluded`, and
+`Walking/Running` because they absorb most accepted rare-label errors.
+
+| System | Accuracy | Macro F1 | Accepted rows | Fallback rows | Fallback accuracy |
+|---|---:|---:|---:|---:|---:|
+| Qwen entropy 0.85 + MiniCPM fallback | 0.7725 | 0.4068 | 4554 | 1644 | 0.5505 |
+| + prediction entropy route <=35% | 0.7706 | 0.4134 | 4030 | 2168 | 0.5950 |
+| + prediction entropy route <=40% | 0.7701 | 0.4132 | 3723 | 2475 | 0.6040 |
+| + prediction entropy route <=45% | 0.7699 | 0.4198 | 3412 | 2786 | 0.6321 |
+| MiniCPM BaboonLand generation | 0.7712 | 0.4236 | 0 | 6198 | NA |
+
+Interpretation:
+
+- Prediction-specific entropy routing helps the macro-F1 objective by routing
+  more rare/confusing BaboonLand clips to MiniCPM.
+- The best tested macro-F1 point is the <=45% route policy at 0.4198 macro F1,
+  up from 0.4068 for entropy-only adaptive fallback.
+- It still does not beat full MiniCPM macro F1, and it loses accuracy relative
+  to entropy-only adaptive fallback. The next useful work is not more generic
+  routing with the same fallback; it is a stronger BaboonLand rare-class
+  specialist or a fallback assignment policy that only routes to MiniCPM where
+  MiniCPM is empirically better.
