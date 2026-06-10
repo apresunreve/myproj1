@@ -193,6 +193,8 @@
   - Best lower-load accuracy point routes 1852/6198 rows with extra fallback
     predictions `Being Groomed`, `Grooming Somebody`, and `Sleeping`: accuracy
     `0.7759`, macro F1 `0.4275`
+  - Materialized low-load metrics:
+    `artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy085_dual_minicpm_tradeoff/lowload_metrics.json`
 - [ ] Train or select a stronger/lightweight BaboonLand rare-class specialist;
   the dual MiniCPM fallback improves macro F1 but still routes most rows, so it
   is not yet a latency-saving cascade.

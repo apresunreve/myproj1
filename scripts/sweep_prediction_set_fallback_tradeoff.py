@@ -145,6 +145,13 @@ def pareto_frontier(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return frontier
 
 
+def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for row in records:
+            handle.write(json.dumps(row, ensure_ascii=True) + "\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--routing-jsonl", required=True)
@@ -157,6 +164,9 @@ def main() -> None:
     parser.add_argument("--candidate-predictions", default="auto")
     parser.add_argument("--secondary-fallback-predictions", default="")
     parser.add_argument("--max-policy-size", type=int, default=None)
+    parser.add_argument("--selected-policy", default="")
+    parser.add_argument("--output-jsonl")
+    parser.add_argument("--output-metrics-json")
     args = parser.parse_args()
 
     routing_rows = load_jsonl_by_id(Path(args.routing_jsonl))
@@ -212,6 +222,25 @@ def main() -> None:
     output_path = Path(args.output_json)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(output, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    if args.selected_policy:
+        selected_policy = {item.strip() for item in args.selected_policy.split(",") if item.strip()}
+        selected_records = build_records(
+            routing_rows,
+            primary_rows,
+            secondary_rows,
+            selected_policy,
+            secondary_predictions,
+            args.route_decision_field,
+            args.accept_value,
+        )
+        selected_metrics = compute_metrics(selected_records, labels)
+        selected_metrics["policy"] = sorted(selected_policy)
+        if args.output_jsonl:
+            write_jsonl(Path(args.output_jsonl), selected_records)
+        if args.output_metrics_json:
+            metrics_path = Path(args.output_metrics_json)
+            metrics_path.parent.mkdir(parents=True, exist_ok=True)
+            metrics_path.write_text(json.dumps(selected_metrics, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     best = output["top_by_macro_f1"][0]
     print(
         f"wrote {output_path}\n"

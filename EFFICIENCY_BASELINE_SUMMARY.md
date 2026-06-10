@@ -727,6 +727,8 @@ Fallback-load tradeoff sweep:
 
 ```text
 artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy085_dual_minicpm_tradeoff/prediction_set_tradeoff.json
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy085_dual_minicpm_tradeoff/lowload_metrics.json
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy085_dual_minicpm_tradeoff/lowload_system_predictions.jsonl
 ```
 
 A Pareto sweep was run from the entropy-0.85 base route. Extra accepted Qwen
