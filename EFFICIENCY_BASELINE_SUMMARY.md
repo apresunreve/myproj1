@@ -663,3 +663,62 @@ Interpretation:
   MiniCPM. The result is useful as a fallback-assignment signal, but the next
   efficiency step needs a stronger/lightweight rare-class specialist or a more
   selective policy with lower fallback load.
+
+Class-balanced MiniCPM BaboonLand specialist check:
+
+```text
+artifacts/full_eval/minicpm_v46_class_balanced_baboonland/minicpm_v46_baboonland_class_balanced_full.jsonl.metrics.json
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_predset_split_tuned_minicpm_class_balanced/metrics.json
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_predset_dual_minicpm_assignment/split_validation_pos_delta.json
+```
+
+The class-balanced BaboonLand MiniCPM checkpoint completed training and full
+evaluation, but it is not a good full-dataset predictor:
+
+| System | Accuracy | Macro F1 | Accepted rows | Standard fallback rows | Class-balanced fallback rows |
+|---|---:|---:|---:|---:|---:|
+| Standard MiniCPM full generation | 0.7712 | 0.4236 | 0 | 6198 | 0 |
+| Class-balanced MiniCPM full generation | 0.6621 | 0.4011 | 0 | 0 | 6198 |
+| Qwen tuned prediction-set + standard MiniCPM fallback | 0.7717 | 0.4283 | 645 | 5553 | 0 |
+| Qwen tuned prediction-set + class-balanced MiniCPM fallback | 0.6655 | 0.4072 | 645 | 0 | 5553 |
+| Qwen tuned prediction-set + dual MiniCPM fallback | 0.7722 | 0.4448 | 645 | 5434 | 119 |
+
+Using the class-balanced checkpoint for every fallback row damages both
+accuracy and macro F1. A dual-fallback assignment is better: keep standard
+MiniCPM as the default fallback, and use class-balanced MiniCPM only when the
+routed-row Qwen prediction is `Drinking`, `Fighting/Playing`, or `Foraging`.
+This routes only 119 rows to the class-balanced fallback.
+
+The dual policy was selected from the positive standard-vs-class-balanced
+fallback deltas and then checked with 20 deterministic half-splits:
+
+```text
+tuned_full_policy=Drinking,Fighting/Playing,Foraging
+tuned_full_accuracy=0.7722
+tuned_full_macro_f1=0.4448
+holdout_accuracy_mean=0.7728
+holdout_macro_f1_mean=0.4420
+holdout_macro_f1_range=0.4091..0.4711
+```
+
+Main per-class F1 changes versus the standard MiniCPM fallback cascade:
+
+| Label | Standard cascade F1 | Dual cascade F1 |
+|---|---:|---:|
+| Foraging | 0.1884 | 0.3394 |
+| Drinking | 0.7857 | 0.8103 |
+| Fighting/Playing | 0.1235 | 0.1429 |
+| Self-Grooming | 0.1039 | 0.1316 |
+| Sitting/Standing | 0.8415 | 0.8415 |
+| Walking/Running | 0.8630 | 0.8618 |
+| Occluded | 0.7135 | 0.7116 |
+
+Interpretation:
+
+- Class-balanced training did create a useful narrow specialist for some
+  BaboonLand rare/confusion cases.
+- It is too weak to replace standard MiniCPM as the general fallback.
+- The current best BaboonLand macro-F1 result is the dual MiniCPM fallback
+  cascade at 0.4448, but it still sends 5553 of 6198 rows to a MiniCPM fallback.
+  The next efficiency step is reducing fallback load or training a lightweight
+  specialist for these routed rare/confusion rows.

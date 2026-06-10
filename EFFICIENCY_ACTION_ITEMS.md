@@ -165,14 +165,30 @@
   - Slurm job: `1411581` (`minicpm-bbl-classbal`)
   - Logs: `logs/minicpm-bbl-classbal.1411581.out`,
     `logs/minicpm-bbl-classbal.1411581.err`
-- [ ] Monitor class-balanced MiniCPM BaboonLand job to completion.
-- [ ] Evaluate class-balanced MiniCPM BaboonLand on the full BaboonLand
+- [x] Monitor class-balanced MiniCPM BaboonLand job to completion.
+  - Status: `COMPLETED`, exit code `0:0`, elapsed `07:03:14`
+  - Checkpoint:
+    `artifacts/runs/baboonland/minicpm_v46_behavior_lora_class_balanced_full/checkpoint`
+- [x] Evaluate class-balanced MiniCPM BaboonLand on the full BaboonLand
   validation split.
-- [ ] Compare class-balanced MiniCPM BaboonLand as a fallback specialist in the
+  - Output:
+    `artifacts/full_eval/minicpm_v46_class_balanced_baboonland/minicpm_v46_baboonland_class_balanced_full.jsonl`
+  - Accuracy: `0.6621`
+  - Macro F1: `0.4011`
+- [x] Compare class-balanced MiniCPM BaboonLand as a fallback specialist in the
   tuned BaboonLand prediction-set cascade.
+  - Class-balanced as all fallback rows: accuracy `0.6655`, macro F1 `0.4072`
+  - Not useful as a full fallback replacement.
+- [x] Add and run dual-fallback assignment validation for BaboonLand.
+  - Script: `scripts/validate_dual_fallback_assignment.py`
+  - Policy: use class-balanced MiniCPM only when routed-row Qwen prediction is
+    `Drinking`, `Fighting/Playing`, or `Foraging`; otherwise use standard
+    MiniCPM fallback.
+  - Full validation metrics: accuracy `0.7722`, macro F1 `0.4448`
+  - 20 half-split holdout mean: accuracy `0.7728`, macro F1 `0.4420`
 - [ ] Train or select a stronger/lightweight BaboonLand rare-class specialist;
-  tuned MiniCPM fallback improves macro F1 but routes most rows, so it is not
-  yet a latency-saving cascade.
+  the dual MiniCPM fallback improves macro F1 but still routes most rows, so it
+  is not yet a latency-saving cascade.
 - [ ] Validate the KABR tuned rare-fallback model assignment on another split
   before treating it as stable.
 - [ ] Validate the KABR rare-class routing thresholds on another split before
