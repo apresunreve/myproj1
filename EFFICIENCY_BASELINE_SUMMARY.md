@@ -722,3 +722,31 @@ Interpretation:
   cascade at 0.4448, but it still sends 5553 of 6198 rows to a MiniCPM fallback.
   The next efficiency step is reducing fallback load or training a lightweight
   specialist for these routed rare/confusion rows.
+
+Fallback-load tradeoff sweep:
+
+```text
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy085_dual_minicpm_tradeoff/prediction_set_tradeoff.json
+```
+
+A Pareto sweep was run from the entropy-0.85 base route. Extra accepted Qwen
+prediction labels can be routed to fallback, standard MiniCPM remains the
+primary fallback, and class-balanced MiniCPM is used only for fallback rows
+whose Qwen prediction is `Drinking`, `Fighting/Playing`, or `Foraging`.
+
+| Policy | Fallback rows | Fallback load | Accuracy | Macro F1 |
+|---|---:|---:|---:|---:|
+| Entropy-0.85 + dual fallback only | 1644 | 0.265 | 0.7730 | 0.4248 |
+| + `Grooming Somebody`, `Sleeping` | 1750 | 0.282 | 0.7757 | 0.4267 |
+| + `Being Groomed`, `Grooming Somebody`, `Sleeping` | 1852 | 0.299 | 0.7759 | 0.4275 |
+| + `Being Groomed`, `Grooming Somebody`, `Sleeping`, `Walking/Running` | 2695 | 0.435 | 0.7753 | 0.4287 |
+| + `Being Groomed`, `Grooming Somebody`, `Sitting/Standing`, `Sleeping`, `Walking/Running` | 5553 | 0.896 | 0.7722 | 0.4448 |
+
+Interpretation:
+
+- The high-load policy remains the best current macro-F1 result.
+- The 1852-row policy is a better efficiency operating point: it improves
+  accuracy to 0.7759, nearly matches the previous standard-cascade macro F1
+  of 0.4283, and cuts fallback load from 89.6% to 29.9%.
+- This makes two candidate reporting points useful: a quality-first cascade
+  and a latency-oriented cascade.

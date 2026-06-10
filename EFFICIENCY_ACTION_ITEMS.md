@@ -186,6 +186,13 @@
     MiniCPM fallback.
   - Full validation metrics: accuracy `0.7722`, macro F1 `0.4448`
   - 20 half-split holdout mean: accuracy `0.7728`, macro F1 `0.4420`
+- [x] Sweep BaboonLand prediction-set fallback load/quality tradeoffs.
+  - Script: `scripts/sweep_prediction_set_fallback_tradeoff.py`
+  - Best macro-F1 policy still routes 5553/6198 rows: accuracy `0.7722`,
+    macro F1 `0.4448`
+  - Best lower-load accuracy point routes 1852/6198 rows with extra fallback
+    predictions `Being Groomed`, `Grooming Somebody`, and `Sleeping`: accuracy
+    `0.7759`, macro F1 `0.4275`
 - [ ] Train or select a stronger/lightweight BaboonLand rare-class specialist;
   the dual MiniCPM fallback improves macro F1 but still routes most rows, so it
   is not yet a latency-saving cascade.
