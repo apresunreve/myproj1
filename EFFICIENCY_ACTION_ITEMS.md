@@ -265,25 +265,32 @@
   - Standard MiniCPM BaboonLand LoRA, `6198` validation rows.
   - `2` frames: accuracy `0.7462`, macro F1 `0.3728`, median `225.18 ms`,
     p90 `236.55 ms`
+  - `4` frames: accuracy `0.7688`, macro F1 `0.4145`, median `247.11 ms`,
+    p90 `252.42 ms`
   - `8` frames: accuracy `0.7709`, macro F1 `0.4212`, median `304.54 ms`,
     p90 `340.65 ms`
   - Tradeoff: `2` frames reduces median latency by about `26.1%` and p90
     latency by about `30.6%`, but loses `0.0247` accuracy and `0.0484`
     macro F1.
-- [x] Bootstrap the full BaboonLand `2`-frame vs `8`-frame comparison.
+- [x] Bootstrap the full BaboonLand fixed-frame comparison.
   - Output:
-    `artifacts/full_eval/frame_subsample/minicpm_baboonland_2v8_bootstrap.json`
+    `artifacts/full_eval/frame_subsample/minicpm_baboonland_2v4v8_bootstrap.json`
   - Grouping: ID prefix before first colon; `5577` groups, `2000` bootstrap
     samples.
   - `2`-frame accuracy CI: `0.7353..0.7571`, macro F1 CI:
     `0.3490..0.3956`
+  - `4`-frame accuracy CI: `0.7585..0.7786`, macro F1 CI:
+    `0.3890..0.4390`
   - `8`-frame accuracy CI: `0.7607..0.7811`, macro F1 CI:
     `0.3964..0.4448`
   - Paired `2`-minus-`8` differences: accuracy `-0.0246`
     (`CI -0.0323..-0.0169`), macro F1 `-0.0483`
     (`CI -0.0706..-0.0264`).
-- [ ] Run the full BaboonLand `4`-frame midpoint evaluation.
-- [ ] Record latency and accuracy for each full-validation frame count.
+  - Paired `4`-minus-`8` differences: accuracy `-0.0021`
+    (`CI -0.0069..0.0027`), macro F1 `-0.0067`
+    (`CI -0.0214..0.0062`).
+- [x] Run the full BaboonLand `4`-frame midpoint evaluation.
+- [x] Record latency and accuracy for each full-validation frame count.
 
 ## Confidence-Gated Fallback
 

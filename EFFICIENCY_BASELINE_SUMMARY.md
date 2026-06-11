@@ -101,14 +101,16 @@ Full BaboonLand validation results:
 | Input frames | Rows | Accuracy | Macro F1 | Median ms | P90 ms | Peak GPU MB |
 |---:|---:|---:|---:|---:|---:|---:|
 | 2 | 6198 | 0.7462 | 0.3728 | 225.18 | 236.55 | 2652.9 |
+| 4 | 6198 | 0.7688 | 0.4145 | 247.11 | 252.42 | 2723.9 |
 | 8 | 6198 | 0.7709 | 0.4212 | 304.54 | 340.65 | 2866.8 |
 
 Outputs:
 
 ```text
 artifacts/full_eval/frame_subsample/minicpm_baboonland_2frames_full.jsonl
+artifacts/full_eval/frame_subsample/minicpm_baboonland_4frames_full.jsonl
 artifacts/full_eval/frame_subsample/minicpm_baboonland_8frames_full.jsonl
-artifacts/full_eval/frame_subsample/minicpm_baboonland_2v8_bootstrap.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_2v4v8_bootstrap.json
 ```
 
 Paired group bootstrap, grouped by ID prefix before the first colon, used
@@ -118,13 +120,17 @@ Paired group bootstrap, grouped by ID prefix before the first colon, used
 |---|---:|---:|---:|
 | 2-frame minus 8-frame accuracy | -0.0246 | -0.0323..-0.0169 | `P(diff<0)=1.0000` |
 | 2-frame minus 8-frame macro F1 | -0.0483 | -0.0706..-0.0264 | `P(diff<0)=1.0000` |
+| 4-frame minus 8-frame accuracy | -0.0021 | -0.0069..0.0027 | `P(diff<0)=0.7940` |
+| 4-frame minus 8-frame macro F1 | -0.0067 | -0.0214..0.0062 | `P(diff<0)=0.8260` |
 
 Interpretation:
 
 - Two-frame MiniCPM reduces median latency by about `26.1%` and p90 latency by
-  about `30.6%` relative to the 8-frame input.
-- The quality loss is stable under grouped bootstrap, so fixed 2-frame
-  inference is a speed/quality operating point, not a free compression win.
+  about `30.6%` relative to the 8-frame input, but the quality loss is stable
+  under grouped bootstrap.
+- Four-frame MiniCPM reduces median latency by about `18.9%` and p90 latency
+  by about `25.9%` relative to 8 frames. Its accuracy and macro-F1 differences
+  versus 8 frames are small enough that both bootstrap CIs cross zero.
 - Some labels improve under 2 frames (`Fighting/Playing`, `Foraging`,
   `Sleeping`), but 8 frames is better for overall accuracy, macro F1,
   `Walking/Running`, grooming labels, `Infant-Carrying`, and `Drinking`.
