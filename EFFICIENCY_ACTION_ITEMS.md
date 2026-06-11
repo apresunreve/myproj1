@@ -383,6 +383,15 @@
     load `0.0671`, median `246.54 ms`, p90 `288.07 ms`.
   - Interpretation: the low fallback load and accuracy are stable; the
     in-sample macro-F1 improvement should not be claimed as validated.
+- [x] Probe higher-load held-out macro-F1 variants.
+  - Four-prediction route with caps `0.15`, `0.20`, and `0.25`: selected
+    essentially the same policy, held-out macro F1 `0.4082`, fallback load
+    `0.0783`, p90 `325.21 ms`.
+  - Five-prediction coarse route adding `Sitting/Standing`: cap `0.15` gives
+    macro F1 `0.4168`, fallback load `0.1428`, p90 `549.98 ms`; cap `0.25`
+    gives macro F1 `0.4185`, fallback load `0.2090`, p90 `553.92 ms`.
+  - Interpretation: confidence routing can recover held-out macro F1 only as a
+    higher-load quality point, not as the low-p90 efficiency point.
 - [ ] Add fallback logic:
   - [x] run compressed frame pass
   - [x] compute deployable confidence

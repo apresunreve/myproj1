@@ -396,6 +396,32 @@ routing.
 | Median ms | 246.54 | 0.31 | 246.05 | 246.85 |
 | P90 ms | 288.07 | 40.55 | 255.98 | 358.33 |
 
+Higher-load split-validation probes:
+
+The four-prediction route was also validated with fallback caps of `0.15`,
+`0.20`, and `0.25`. The selected policy barely changed: held-out macro F1
+remained `0.4082`, fallback load rose only to `0.0783`, and p90 rose to
+`325.21 ms`. A coarser five-prediction route that also allowed
+`Sitting/Standing` found stronger held-out macro-F1 points, but only by routing
+enough rows to lose the tail-latency advantage.
+
+```text
+artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_split_validation_cap015.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_split_validation_cap020.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_split_validation_cap025.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_split_validation_5pred_cap010_coarse.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_split_validation_5pred_cap015_coarse.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_split_validation_5pred_cap025_coarse.json
+```
+
+| Held-out policy | Accuracy | Macro F1 | Fallback load | Median ms | P90 ms |
+|---|---:|---:|---:|---:|---:|
+| 4-prediction cap 0.10 | 0.7726 | 0.4081 | 0.0671 | 246.54 | 288.07 |
+| 4-prediction cap 0.15-0.25 | 0.7728 | 0.4082 | 0.0783 | 246.70 | 325.21 |
+| 5-prediction coarse cap 0.10 | 0.7699 | 0.4067 | 0.0757 | 246.48 | 320.71 |
+| 5-prediction coarse cap 0.15 | 0.7683 | 0.4168 | 0.1428 | 246.78 | 549.98 |
+| 5-prediction coarse cap 0.25 | 0.7696 | 0.4185 | 0.2090 | 247.40 | 553.92 |
+
 Interpretation:
 
 - This is the best current latency/accuracy point: the held-out split keeps
