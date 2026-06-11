@@ -752,3 +752,32 @@ Interpretation:
   of 0.4283, and cuts fallback load from 89.6% to 29.9%.
 - This makes two candidate reporting points useful: a quality-first cascade
   and a latency-oriented cascade.
+
+Grouped bootstrap uncertainty check:
+
+```text
+artifacts/full_eval/adaptive_fallback/baboonland_policy_uncertainty/quality_vs_efficiency_group_bootstrap.json
+```
+
+The quality-first and efficiency-first policies were compared with 2000
+bootstrap samples, resampling by the ID prefix before the first colon. This
+created 5577 groups over the 6198 common rows.
+
+| System | Accuracy | Accuracy 95% CI | Macro F1 | Macro F1 95% CI | Fallback load | Fallback load 95% CI |
+|---|---:|---:|---:|---:|---:|---:|
+| Quality-first | 0.7722 | 0.7620..0.7819 | 0.4448 | 0.4180..0.4691 | 0.8959 | 0.8880..0.9040 |
+| Efficiency-first | 0.7759 | 0.7662..0.7856 | 0.4275 | 0.4008..0.4503 | 0.2988 | 0.2873..0.3106 |
+
+Paired efficiency-minus-quality bootstrap differences:
+
+| Metric | Mean difference | 95% CI | Probability |
+|---|---:|---:|---:|
+| Accuracy | +0.0037 | 0.0000..0.0073 | `P(diff > 0)=0.9730` |
+| Macro F1 | -0.0175 | -0.0317..-0.0046 | `P(diff < 0)=0.9980` |
+| Fallback load | -0.5971 | -0.6096..-0.5836 | `P(diff < 0)=1.0000` |
+
+The bootstrap confirms that these are different operating points, not just
+noise. The efficiency-first policy very likely improves accuracy and very
+strongly reduces fallback load, but it very likely sacrifices macro F1. The
+quality-first policy remains the best choice when rare-class macro F1 is the
+primary objective.

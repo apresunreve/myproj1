@@ -195,6 +195,17 @@
     `0.7759`, macro F1 `0.4275`
   - Materialized low-load metrics:
     `artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_entropy085_dual_minicpm_tradeoff/lowload_metrics.json`
+- [x] Bootstrap-validate BaboonLand quality-first vs efficiency-first policies.
+  - Script: `scripts/bootstrap_policy_uncertainty.py`
+  - Grouping: ID prefix before first colon; `5577` groups, `2000` bootstrap
+    samples.
+  - Quality-first macro F1 CI: `0.4180..0.4691`, fallback load CI:
+    `0.8880..0.9040`
+  - Efficiency-first macro F1 CI: `0.4008..0.4503`, fallback load CI:
+    `0.2873..0.3106`
+  - Paired efficiency-minus-quality differences: accuracy `+0.0037`
+    (`p>0=0.9730`), macro F1 `-0.0175` (`p<0=0.9980`), fallback load
+    `-0.5971`.
 - [ ] Train or select a stronger/lightweight BaboonLand rare-class specialist;
   the dual MiniCPM fallback improves macro F1 but still routes most rows, so it
   is not yet a latency-saving cascade.
