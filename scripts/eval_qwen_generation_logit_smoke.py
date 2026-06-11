@@ -48,6 +48,16 @@ def load_rows(path: Path, max_samples: int | None = None) -> list[dict]:
     return rows
 
 
+def uniform_subsample(items: list[str], max_items: int | None) -> list[str]:
+    if max_items is None or max_items <= 0 or len(items) <= max_items:
+        return items
+    if max_items == 1:
+        return [items[len(items) // 2]]
+    last = len(items) - 1
+    indices = [round(i * last / (max_items - 1)) for i in range(max_items)]
+    return [items[index] for index in indices]
+
+
 def infer_labels(rows: list[dict]) -> list[str]:
     labels = []
     seen = set()
@@ -203,6 +213,7 @@ def main() -> None:
     parser.add_argument("--samples-per-class", type=int, default=5, help="Use <=0 to evaluate rows in file order.")
     parser.add_argument("--max-samples", type=int, default=None, help="Optional row limit when --samples-per-class <=0.")
     parser.add_argument("--max-new-tokens", type=int, default=16)
+    parser.add_argument("--max-input-frames", type=int, default=None)
     parser.add_argument("--output-jsonl", required=True)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
@@ -243,7 +254,7 @@ def main() -> None:
             gold = row.get("answer") or row.get("metadata", {}).get("behavior")
             t0 = time.perf_counter()
             result = scorer.generate_with_confidence(
-                row["image_paths"],
+                uniform_subsample(row["image_paths"], args.max_input_frames),
                 row["prompt"],
                 max_new_tokens=args.max_new_tokens,
             )
@@ -259,7 +270,7 @@ def main() -> None:
                 "token_ids": result.token_ids,
                 "confidence": result.confidence,
                 "latency_ms": round(latency_ms, 2),
-                "num_input_frames": len(row["image_paths"]),
+                "num_input_frames": len(uniform_subsample(row["image_paths"], args.max_input_frames)),
             }
             handle.write(json.dumps(record, ensure_ascii=True) + "\n")
             handle.flush()

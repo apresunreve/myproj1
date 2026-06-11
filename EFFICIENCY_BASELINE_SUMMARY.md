@@ -224,6 +224,36 @@ Interpretation:
 - This points toward single-pass confidence from the 4-frame model, not
   multi-pass agreement, as the next practical gate.
 
+## MiniCPM 4-Frame Generation-Logit Confidence Smoke
+
+The generation-logit confidence path now works with MiniCPM as well as Qwen
+and supports `--max-input-frames`.
+
+Smoke artifact:
+
+```text
+artifacts/smoke_eval/frame_subsample/minicpm_baboonland_4frames_genlogit_20.jsonl.metrics.json
+```
+
+Result on the first 20 BaboonLand validation rows with 4 input frames:
+
+```text
+accuracy=0.7000
+parsed_rate=1.0000
+latency_median_ms=225.38
+latency_p90_ms=245.81
+```
+
+Confidence separation on this smoke:
+
+| Metric | Correct median | Incorrect median |
+|---|---:|---:|
+| First-token probability | 0.9855 | 0.6190 |
+| Mean-token entropy | 0.0338 | 0.2668 |
+
+This is the right next gate candidate because it uses one 4-frame pass and
+does not require validation-label-tuned prediction sets or a second cheap pass.
+
 New per-row fields in `scripts/eval_cross_dataset_vlm.py`:
 
 - `latency_ms`

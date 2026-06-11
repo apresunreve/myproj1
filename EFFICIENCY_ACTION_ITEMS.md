@@ -330,6 +330,16 @@
     median `474.62 ms`, p90 `619.22 ms`.
   - Interpretation: deployable, but not latency-efficient because every row
     pays for both the `2`-frame and `4`-frame passes.
+- [x] Smoke test single-pass MiniCPM generation-logit confidence with `4`
+  input frames.
+  - Script: `scripts/eval_qwen_generation_logit_smoke.py`
+  - Output:
+    `artifacts/smoke_eval/frame_subsample/minicpm_baboonland_4frames_genlogit_20.jsonl.metrics.json`
+  - Result: `20` rows, accuracy `0.7000`, parsed rate `1.0000`, median
+    `225.38 ms`, p90 `245.81 ms`.
+  - Confidence separation: first-token probability median `0.9855` for
+    correct rows vs `0.6190` for incorrect rows; mean-token entropy median
+    `0.0338` for correct rows vs `0.2668` for incorrect rows.
 - [ ] Replace the validation-set-tuned predicted-label proxy with a deployable
   confidence gate.
 - [ ] Add fallback logic:

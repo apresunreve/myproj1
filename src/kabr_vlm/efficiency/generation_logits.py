@@ -38,8 +38,6 @@ class QwenGenerationLogitScorer:
         *,
         attention_experiment: str | None = None,
     ) -> "QwenGenerationLogitScorer":
-        if not model_id.startswith("Qwen/Qwen2.5-VL-"):
-            raise ValueError("QwenGenerationLogitScorer currently supports only Qwen2.5-VL model ids")
         generator = load_hf_adapter_generator(
             model_id=model_id,
             adapter_path=adapter_path,
