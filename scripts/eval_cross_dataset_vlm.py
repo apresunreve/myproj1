@@ -127,6 +127,53 @@ def load_jsonl(path: Path, limit: int | None = None) -> list[dict]:
     return rows
 
 
+def select_frame_indices(num_items: int, max_items: int | None, strategy: str) -> list[int]:
+    if num_items <= 0:
+        return []
+    if max_items is None or max_items <= 0 or num_items <= max_items:
+        return list(range(num_items))
+    if max_items == 1:
+        if strategy == "first":
+            return [0]
+        if strategy == "last":
+            return [num_items - 1]
+        return [num_items // 2]
+
+    if strategy == "uniform":
+        last_index = num_items - 1
+        return [round(i * last_index / (max_items - 1)) for i in range(max_items)]
+    if strategy == "first":
+        return list(range(max_items))
+    if strategy == "last":
+        return list(range(num_items - max_items, num_items))
+    if strategy == "middle":
+        start = max(0, (num_items - max_items) // 2)
+        return list(range(start, start + max_items))
+    if strategy == "first_middle_last":
+        if max_items == 2:
+            return [0, num_items - 1]
+        anchors = [0, num_items // 2, num_items - 1]
+        if max_items == 3:
+            return sorted(set(anchors))
+        remaining = [idx for idx in range(num_items) if idx not in anchors]
+        needed = max_items - len(set(anchors))
+        extra = uniform_subsample(remaining, needed)
+        return sorted(set(anchors + extra))[:max_items]
+    if strategy == "stride":
+        step = max(1, num_items // max_items)
+        indices = list(range(0, num_items, step))[:max_items]
+        while len(indices) < max_items:
+            candidate = indices[-1] + 1 if indices else 0
+            if candidate >= num_items:
+                candidate = num_items - 1
+            if candidate not in indices:
+                indices.append(candidate)
+            else:
+                break
+        return sorted(indices)
+    raise ValueError(f"unsupported frame selection strategy: {strategy}")
+
+
 def uniform_subsample(items: list[Any], max_items: int | None) -> list[Any]:
     if max_items is None or max_items <= 0 or len(items) <= max_items:
         return list(items)
@@ -135,6 +182,11 @@ def uniform_subsample(items: list[Any], max_items: int | None) -> list[Any]:
     last_index = len(items) - 1
     indices = [round(i * last_index / (max_items - 1)) for i in range(max_items)]
     return [items[index] for index in indices]
+
+
+def select_frames(items: list[Any], max_items: int | None, strategy: str) -> tuple[list[Any], list[int]]:
+    indices = select_frame_indices(len(items), max_items, strategy)
+    return [items[index] for index in indices], indices
 
 
 def extract_label(text: str, target: str) -> str | None:
@@ -266,7 +318,13 @@ def main() -> None:
         "--max_input_frames",
         type=int,
         default=None,
-        help="Uniformly subsample each row's image_paths to this many frames before evaluation.",
+        help="Subsample each row's image_paths to this many frames before evaluation.",
+    )
+    parser.add_argument(
+        "--frame_selection",
+        choices=["uniform", "first", "last", "middle", "first_middle_last", "stride"],
+        default="uniform",
+        help="Frame selection strategy used with --max_input_frames.",
     )
     parser.add_argument("--output_jsonl", required=True)
     parser.add_argument("--resume", action="store_true")
@@ -326,7 +384,7 @@ def main() -> None:
             # label in metadata.behavior; fall back to row.answer just in case.
             if not isinstance(gold_label, str):
                 gold_label = row.get("answer", "")
-            image_paths = uniform_subsample(row["image_paths"], args.max_input_frames)
+            image_paths, frame_indices = select_frames(row["image_paths"], args.max_input_frames, args.frame_selection)
             prompt = row["prompt"]
             latency_ms = None
             try:
@@ -361,6 +419,8 @@ def main() -> None:
                 "pred_label": pred_label,
                 "latency_ms": None if latency_ms is None else round(latency_ms, 2),
                 "num_input_frames": len(image_paths),
+                "frame_selection": args.frame_selection,
+                "selected_frame_indices": frame_indices,
             }
             handle.write(json.dumps(record, ensure_ascii=True) + "\n")
             handle.flush()

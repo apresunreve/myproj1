@@ -252,6 +252,13 @@
 - [x] Add fixed frame-count evaluation mode to `scripts/eval_cross_dataset_vlm.py`.
   - CLI: `--max_input_frames`
   - Sampling: uniform over each row's `image_paths`
+- [x] Add configurable frame-selection strategies to
+  `scripts/eval_cross_dataset_vlm.py`.
+  - CLI: `--frame_selection`
+  - Strategies: `uniform`, `first`, `last`, `middle`,
+    `first_middle_last`, `stride`
+  - Prediction records now include `frame_selection` and
+    `selected_frame_indices`.
 - [x] Smoke test fixed compressed inputs against 8-frame generation on a
   balanced BaboonLand subset.
   - Subset: `242` rows, up to `20` per class; `Mounting` has only `2`
@@ -409,11 +416,27 @@
 
 ## Frame Selection Policies
 
-- [ ] Implement uniform frame sampling baseline.
-- [ ] Implement first/middle/last frame selection.
+- [x] Implement uniform frame sampling baseline.
+- [x] Implement first/middle/last frame selection.
+- [x] Smoke-test 4-frame selection policies on the same 100-row BaboonLand
+  subset.
+  - `uniform`: accuracy `0.7100`, macro F1 `0.2388`, median `236.00 ms`,
+    p90 `251.91 ms`
+  - `first`: accuracy `0.7500`, macro F1 `0.2437`, median `238.66 ms`,
+    p90 `245.53 ms`
+  - `middle`: accuracy `0.7500`, macro F1 `0.2680`, median `239.34 ms`,
+    p90 `242.14 ms`
+  - `last`: accuracy `0.7700`, macro F1 `0.2585`, median `235.50 ms`,
+    p90 `237.23 ms`
+  - `first_middle_last`: accuracy `0.7300`, macro F1 `0.2431`, median
+    `238.08 ms`, p90 `254.94 ms`
+  - `stride`: accuracy `0.7300`, macro F1 `0.2462`, median `236.31 ms`,
+    p90 `238.92 ms`
 - [ ] Implement simple high-motion frame selection.
 - [ ] Implement redundancy filtering if useful.
-- [ ] Compare frame policies at the same average frame count.
+- [x] Compare frame policies at the same average frame count on a smoke subset.
+- [ ] Run full-validation frame-policy comparison for the best smoke candidates
+  (`last` for accuracy and `middle` for macro F1).
 
 ## Adapter-Aware Importance
 

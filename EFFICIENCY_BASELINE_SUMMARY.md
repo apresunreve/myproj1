@@ -1285,3 +1285,42 @@ Interpretation:
 - The next step is a full-validation or larger stratified run, then confidence
   gating: accept cheap low-frame predictions only when confidence is high and
   fall back to 8 frames otherwise.
+
+## MiniCPM Frame-Selection Smoke
+
+`scripts/eval_cross_dataset_vlm.py` now also supports `--frame_selection` with
+`uniform`, `first`, `last`, `middle`, `first_middle_last`, and `stride`.
+Prediction records include the selected strategy and frame indices:
+`frame_selection` and `selected_frame_indices`.
+
+Artifacts:
+
+```text
+artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_uniform_100.jsonl.metrics.json
+artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_first_100.jsonl.metrics.json
+artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_middle_100.jsonl.metrics.json
+artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_last_100.jsonl.metrics.json
+artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_first_middle_last_100.jsonl.metrics.json
+artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_stride_100.jsonl.metrics.json
+```
+
+All runs use the same first 100 BaboonLand validation rows, standard MiniCPM-V
+4.6 BaboonLand LoRA, 4 selected frames, and `max_new_tokens=8`.
+
+| 4-frame policy | Accuracy | Macro F1 | Median ms | P90 ms |
+|---|---:|---:|---:|---:|
+| `uniform` | 0.7100 | 0.2388 | 236.00 | 251.91 |
+| `first` | 0.7500 | 0.2437 | 238.66 | 245.53 |
+| `middle` | 0.7500 | 0.2680 | 239.34 | 242.14 |
+| `last` | 0.7700 | 0.2585 | 235.50 | 237.23 |
+| `first_middle_last` | 0.7300 | 0.2431 | 238.08 | 254.94 |
+| `stride` | 0.7300 | 0.2462 | 236.31 | 238.92 |
+
+Interpretation:
+
+- On this small smoke subset, later or centered frames beat uniform 4-frame
+  sampling without increasing latency.
+- `last` is the best accuracy candidate and `middle` is the best macro-F1
+  candidate.
+- This is a smoke result only; the next full-validation comparison should run
+  `last` and `middle` before changing the main routing policy.
