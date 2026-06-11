@@ -294,19 +294,45 @@
 
 ## Confidence-Gated Fallback
 
-- [ ] Implement compressed-first inference.
+- [x] Implement first compressed-frame fallback proxy using 4-frame predicted
+  label sets.
+  - Cheap pass: standard MiniCPM BaboonLand LoRA with `4` uniformly sampled
+    frames.
+  - Fallback: same adapter with `8` uniformly sampled frames.
+  - Sweep artifact:
+    `artifacts/full_eval/frame_subsample/frames4_to_8_policy/prediction_set_tradeoff.json`
+  - Low-load policy routes 4-frame predictions `Grooming Somebody` and
+    `Self-Grooming` to 8-frame fallback: fallback load `0.0323`, accuracy
+    `0.7704`, macro F1 `0.4185`, median `247.19 ms`, p90 `253.64 ms`.
+  - Accuracy policy routes `Grooming Somebody`, `Occluded`, `Self-Grooming`,
+    and `Walking/Running`: fallback load `0.3804`, accuracy `0.7748`, macro F1
+    `0.4201`, median `251.97 ms`, p90 `513.09 ms`.
+  - Quality policy routes `Grooming Somebody`, `Occluded`, `Self-Grooming`,
+    `Sitting/Standing`, and `Walking/Running`: fallback load `0.9450`,
+    accuracy `0.7720`, macro F1 `0.4282`, median `552.62 ms`.
+- [x] Bootstrap compressed-first 4-frame to 8-frame fallback policies.
+  - Output:
+    `artifacts/full_eval/frame_subsample/frames4_to_8_policy/cascade_policy_bootstrap.json`
+  - Grouping: ID prefix before first colon; `5577` groups, `2000` samples.
+  - Accuracy policy vs 8-frame: accuracy diff `+0.0039`
+    (`CI 0.0006..0.0071`), macro-F1 diff `-0.0011`
+    (`CI -0.0128..0.0096`).
+  - Quality policy vs 8-frame: macro-F1 diff `+0.0069`
+    (`CI 0.0009..0.0136`), but latency is worse because it reruns most rows.
+- [ ] Replace the validation-set-tuned predicted-label proxy with a deployable
+  confidence gate.
 - [ ] Add fallback logic:
-  - [ ] run compressed frame pass
-  - [ ] compute confidence
+  - [x] run compressed frame pass
+  - [ ] compute deployable confidence
   - [ ] accept if confidence is high
-  - [ ] rerun full 8-frame input if confidence is low
+  - [x] rerun full 8-frame input when the proxy gate routes the row
 - [ ] Sweep confidence thresholds.
 - [ ] Report:
-  - [ ] accuracy
-  - [ ] macro F1
-  - [ ] median latency
-  - [ ] p90 latency
-  - [ ] fallback rate
+  - [x] accuracy
+  - [x] macro F1
+  - [x] median latency
+  - [x] p90 latency
+  - [x] fallback rate
   - [ ] fallback rate by class
   - [ ] accuracy per millisecond
 

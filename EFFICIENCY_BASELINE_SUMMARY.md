@@ -135,6 +135,55 @@ Interpretation:
   `Sleeping`), but 8 frames is better for overall accuracy, macro F1,
   `Walking/Running`, grooming labels, `Infant-Carrying`, and `Drinking`.
 
+## BaboonLand 4-Frame To 8-Frame Proxy Cascade
+
+The first compressed-first fallback test uses 4-frame MiniCPM as the cheap
+pass and reruns selected rows with 8 frames. This is a validation-set-tuned
+predicted-label proxy, not yet a deployable confidence gate.
+
+Artifacts:
+
+```text
+artifacts/full_eval/frame_subsample/frames4_to_8_policy/prediction_set_tradeoff.json
+artifacts/full_eval/frame_subsample/frames4_to_8_policy/lowload_metrics.json
+artifacts/full_eval/frame_subsample/frames4_to_8_policy/accuracy_metrics.json
+artifacts/full_eval/frame_subsample/frames4_to_8_policy/quality_metrics.json
+artifacts/full_eval/frame_subsample/frames4_to_8_policy/cascade_policy_bootstrap.json
+```
+
+Sequential latency means 4-frame latency plus 8-frame fallback latency for
+routed rows.
+
+| System | Routed 4-frame predictions | Fallback load | Accuracy | Macro F1 | Median ms | P90 ms |
+|---|---|---:|---:|---:|---:|---:|
+| 4-frame only | None | 0.0000 | 0.7688 | 0.4145 | 247.11 | 252.42 |
+| Low-load cascade | `Grooming Somebody`, `Self-Grooming` | 0.0323 | 0.7704 | 0.4185 | 247.19 | 253.64 |
+| Accuracy cascade | `Grooming Somebody`, `Occluded`, `Self-Grooming`, `Walking/Running` | 0.3804 | 0.7748 | 0.4201 | 251.97 | 513.09 |
+| Quality cascade | `Grooming Somebody`, `Occluded`, `Self-Grooming`, `Sitting/Standing`, `Walking/Running` | 0.9450 | 0.7720 | 0.4282 | 552.62 | 592.38 |
+| 8-frame only | None | NA | 0.7709 | 0.4212 | 304.54 | 340.65 |
+
+Bootstrap paired differences versus 8-frame only:
+
+| System | Accuracy diff | Macro-F1 diff |
+|---|---:|---:|
+| 4-frame only | -0.0021, CI `-0.0069..0.0027` | -0.0067, CI `-0.0214..0.0062` |
+| Low-load cascade | -0.0005, CI `-0.0050..0.0042` | -0.0027, CI `-0.0172..0.0105` |
+| Accuracy cascade | +0.0039, CI `0.0006..0.0071` | -0.0011, CI `-0.0128..0.0096` |
+| Quality cascade | +0.0011, CI `0.0000..0.0023` | +0.0069, CI `0.0009..0.0136` |
+
+Interpretation:
+
+- The low-load proxy gate keeps the latency profile almost identical to
+  4-frame only while moving quality closer to 8-frame.
+- The accuracy cascade is the best current compressed-first accuracy point,
+  with a statistically positive accuracy difference versus 8-frame and no
+  stable macro-F1 loss, but p90 latency rises because 38% of rows rerun.
+- The quality cascade improves macro F1 but routes 94.5% of rows, so it is not
+  an efficiency solution.
+- The next step is replacing predicted-label routing with confidence or
+  agreement features that can be selected without tuning on the same
+  validation labels.
+
 New per-row fields in `scripts/eval_cross_dataset_vlm.py`:
 
 - `latency_ms`

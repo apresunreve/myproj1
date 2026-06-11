@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 from collections import Counter, defaultdict
 from itertools import combinations
 from pathlib import Path
@@ -28,6 +29,13 @@ def pred(row: dict[str, Any] | None) -> str | None:
         return None
     value = row.get("pred_label") or row.get("prediction")
     return str(value) if value is not None else None
+
+
+def latency(row: dict[str, Any] | None) -> float | None:
+    if row is None:
+        return None
+    value = row.get("latency_ms") or row.get("total_latency_ms")
+    return float(value) if isinstance(value, int | float) else None
 
 
 def infer_labels(records: list[dict[str, Any]]) -> list[str]:
@@ -65,12 +73,21 @@ def build_records(
         if not use_fallback:
             prediction = qwen_prediction
             source = "qwen_accept"
+            fallback_latency = None
         elif secondary_rows is not None and qwen_prediction in secondary_fallback_predictions:
-            prediction = pred(secondary_rows.get(row_id))
+            fallback_row = secondary_rows.get(row_id)
+            prediction = pred(fallback_row)
+            fallback_latency = latency(fallback_row)
             source = "secondary_fallback"
         else:
-            prediction = pred(primary_rows.get(row_id))
+            fallback_row = primary_rows.get(row_id)
+            prediction = pred(fallback_row)
+            fallback_latency = latency(fallback_row)
             source = "primary_fallback"
+        routing_latency = latency(routing_row)
+        total_latency = None
+        if routing_latency is not None:
+            total_latency = routing_latency + (fallback_latency or 0.0)
         records.append(
             {
                 "id": row_id,
@@ -80,9 +97,23 @@ def build_records(
                 "source": source,
                 "qwen_prediction": qwen_prediction,
                 "route_decision": route_decision,
+                "routing_latency_ms": routing_latency,
+                "fallback_latency_ms": fallback_latency,
+                "total_latency_ms": total_latency,
             }
         )
     return records
+
+
+def percentile(values: list[float], q: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    pos = (len(ordered) - 1) * q
+    lo = int(pos)
+    hi = min(lo + 1, len(ordered) - 1)
+    frac = pos - lo
+    return ordered[lo] * (1.0 - frac) + ordered[hi] * frac
 
 
 def compute_metrics(records: list[dict[str, Any]], labels: list[str]) -> dict[str, Any]:
@@ -110,7 +141,12 @@ def compute_metrics(records: list[dict[str, Any]], labels: list[str]) -> dict[st
         f1_values.append(f1)
     source_counts = Counter(row["source"] for row in records)
     fallback_rows = source_counts.get("primary_fallback", 0) + source_counts.get("secondary_fallback", 0)
-    return {
+    latencies = [
+        float(row["total_latency_ms"])
+        for row in records
+        if isinstance(row.get("total_latency_ms"), int | float)
+    ]
+    metrics = {
         "accuracy": n_correct / n_total if n_total else 0.0,
         "macro_f1": sum(f1_values) / len(f1_values) if f1_values else 0.0,
         "fallback_rows": fallback_rows,
@@ -118,6 +154,16 @@ def compute_metrics(records: list[dict[str, Any]], labels: list[str]) -> dict[st
         "source_counts": dict(source_counts),
         "per_class_f1": per_class_f1,
     }
+    if latencies:
+        metrics.update(
+            {
+                "n_timed": len(latencies),
+                "latency_median_ms": round(statistics.median(latencies), 2),
+                "latency_p90_ms": round(percentile(latencies, 0.9), 2),
+                "latency_mean_ms": round(statistics.mean(latencies), 2),
+            }
+        )
+    return metrics
 
 
 def pareto_frontier(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
