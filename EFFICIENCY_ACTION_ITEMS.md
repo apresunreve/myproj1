@@ -441,7 +441,12 @@
   - Smoke result: accuracy `0.7100`, macro F1 `0.2388`, generation median
     `235.83 ms`, generation p90 `240.38 ms`.
   - Selection overhead: median `17.34 ms`, p90 `35.40 ms`, mean `35.15 ms`.
-- [ ] Implement redundancy filtering if useful.
+- [x] Implement redundancy filtering if useful.
+  - Strategy: keep endpoints, then greedily add frames with the largest
+    minimum thumbnail distance from already selected frames.
+  - Smoke result: accuracy `0.7200`, macro F1 `0.2655`, generation median
+    `236.14 ms`, generation p90 `240.81 ms`.
+  - Selection overhead: median `22.31 ms`, p90 `23.02 ms`, mean `22.01 ms`.
 - [x] Compare frame policies at the same average frame count on a smoke subset.
 - [x] Run full-validation frame-policy comparison for the best smoke candidates
   (`last` for accuracy and `middle` for macro F1).

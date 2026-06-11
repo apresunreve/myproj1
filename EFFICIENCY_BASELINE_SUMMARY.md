@@ -1289,10 +1289,10 @@ Interpretation:
 ## MiniCPM Frame-Selection Smoke
 
 `scripts/eval_cross_dataset_vlm.py` now also supports `--frame_selection` with
-`uniform`, `first`, `last`, `middle`, `first_middle_last`, `stride`, and
-`high_motion`. Prediction records include the selected strategy, frame indices,
-and selection overhead: `frame_selection`, `selected_frame_indices`, and
-`frame_selection_latency_ms`.
+`uniform`, `first`, `last`, `middle`, `first_middle_last`, `stride`,
+`high_motion`, and `low_redundancy`. Prediction records include the selected
+strategy, frame indices, and selection overhead: `frame_selection`,
+`selected_frame_indices`, and `frame_selection_latency_ms`.
 
 Artifacts:
 
@@ -1304,6 +1304,7 @@ artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_last_100.jsonl.m
 artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_first_middle_last_100.jsonl.metrics.json
 artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_stride_100.jsonl.metrics.json
 artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_high_motion_100.jsonl.metrics.json
+artifacts/smoke_eval/frame_selection/minicpm_baboonland_4frames_low_redundancy_100.jsonl.metrics.json
 ```
 
 All runs use the same first 100 BaboonLand validation rows, standard MiniCPM-V
@@ -1318,11 +1319,17 @@ All runs use the same first 100 BaboonLand validation rows, standard MiniCPM-V
 | `first_middle_last` | 0.7300 | 0.2431 | 238.08 | 254.94 |
 | `stride` | 0.7300 | 0.2462 | 236.31 | 238.92 |
 | `high_motion` | 0.7100 | 0.2388 | 235.83 | 240.38 |
+| `low_redundancy` | 0.7200 | 0.2655 | 236.14 | 240.81 |
 
 The `high_motion` selector uses 64x64 grayscale thumbnail frame differences,
 keeps the first and last frames, and fills the remaining frame slots from the
 highest-motion adjacent transitions. Its 100-row CPU selection overhead was
 median `17.34 ms`, p90 `35.40 ms`, mean `35.15 ms`, and max `648.50 ms`.
+
+The `low_redundancy` selector keeps the first and last frames, then greedily
+adds frames with the largest minimum thumbnail distance from already selected
+frames. Its 100-row CPU selection overhead was median `22.31 ms`, p90
+`23.02 ms`, mean `22.01 ms`, and max `34.40 ms`.
 
 Interpretation:
 
@@ -1332,6 +1339,8 @@ Interpretation:
   candidate.
 - `high_motion` matches uniform quality on this smoke subset while adding CPU
   frame-selection overhead, so it is not a full-validation candidate yet.
+- `low_redundancy` improves smoke macro F1 over uniform but remains below the
+  simpler `middle` policy, so it is not a full-validation candidate yet.
 - This is a smoke result only. The full-validation follow-up below checks
   `last` and `middle` before changing the main routing policy.
 

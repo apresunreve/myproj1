@@ -137,16 +137,21 @@ def _mean_abs_diff(left: Image.Image, right: Image.Image) -> float:
     return sum(abs(int(a) - int(b)) for a, b in zip(left_pixels, right_pixels, strict=True)) / len(left_pixels)
 
 
+def _load_frame_thumbnails(image_paths: list[str]) -> list[Image.Image]:
+    thumbnails: list[Image.Image] = []
+    for path in image_paths:
+        with Image.open(path) as image:
+            thumbnails.append(image.convert("L").resize((64, 64)))
+    return thumbnails
+
+
 def high_motion_indices(image_paths: list[str], max_items: int) -> list[int]:
     if len(image_paths) <= max_items:
         return list(range(len(image_paths)))
     if max_items == 1:
         return [len(image_paths) // 2]
 
-    thumbnails: list[Image.Image] = []
-    for path in image_paths:
-        with Image.open(path) as image:
-            thumbnails.append(image.convert("L").resize((64, 64)))
+    thumbnails = _load_frame_thumbnails(image_paths)
 
     transition_scores = [
         (score, idx - 1, idx)
@@ -171,6 +176,30 @@ def high_motion_indices(image_paths: list[str], max_items: int) -> list[int]:
     return sorted(selected)[:max_items]
 
 
+def low_redundancy_indices(image_paths: list[str], max_items: int) -> list[int]:
+    if len(image_paths) <= max_items:
+        return list(range(len(image_paths)))
+    if max_items == 1:
+        return [len(image_paths) // 2]
+
+    thumbnails = _load_frame_thumbnails(image_paths)
+    selected = {0, len(image_paths) - 1}
+    while len(selected) < max_items:
+        best_idx = None
+        best_score = -1.0
+        for idx in range(len(image_paths)):
+            if idx in selected:
+                continue
+            min_distance = min(_mean_abs_diff(thumbnails[idx], thumbnails[selected_idx]) for selected_idx in selected)
+            if min_distance > best_score:
+                best_score = min_distance
+                best_idx = idx
+        if best_idx is None:
+            break
+        selected.add(best_idx)
+    return sorted(selected)[:max_items]
+
+
 def select_frame_indices(
     num_items: int,
     max_items: int | None,
@@ -185,6 +214,10 @@ def select_frame_indices(
         if image_paths is None:
             raise ValueError("high_motion frame selection requires image paths")
         return high_motion_indices(image_paths, max_items)
+    if strategy == "low_redundancy":
+        if image_paths is None:
+            raise ValueError("low_redundancy frame selection requires image paths")
+        return low_redundancy_indices(image_paths, max_items)
     if max_items == 1:
         if strategy == "first":
             return [0]
@@ -238,7 +271,8 @@ def uniform_subsample(items: list[Any], max_items: int | None) -> list[Any]:
 
 
 def select_frames(items: list[Any], max_items: int | None, strategy: str) -> tuple[list[Any], list[int]]:
-    indices = select_frame_indices(len(items), max_items, strategy, image_paths=items if strategy == "high_motion" else None)
+    needs_paths = strategy in {"high_motion", "low_redundancy"}
+    indices = select_frame_indices(len(items), max_items, strategy, image_paths=items if needs_paths else None)
     return [items[index] for index in indices], indices
 
 
@@ -391,7 +425,16 @@ def main() -> None:
     )
     parser.add_argument(
         "--frame_selection",
-        choices=["uniform", "first", "last", "middle", "first_middle_last", "stride", "high_motion"],
+        choices=[
+            "uniform",
+            "first",
+            "last",
+            "middle",
+            "first_middle_last",
+            "stride",
+            "high_motion",
+            "low_redundancy",
+        ],
         default="uniform",
         help="Frame selection strategy used with --max_input_frames.",
     )
