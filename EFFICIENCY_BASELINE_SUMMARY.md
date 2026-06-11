@@ -1530,3 +1530,20 @@ Interpretation:
   while dropping early frames slightly increases confidence.
 - Label likelihood remains too slow for direct routing here; use it as an
   analysis signal, not the deployed gate.
+
+## Frame-Policy Decision
+
+The current frame-policy evidence supports a conservative compressed-first
+design:
+
+- Keep uniform 4-frame sampling as the default compressed pass. Full-validation
+  MiniCPM middle/last policies did not beat uniform.
+- Avoid a global frame-position replacement. Center/later frames help some
+  grooming interactions, but they hurt `Walking/Running` and `Occluded`.
+- Use class-aware generation-logit entropy for routing hard rows to 8-frame
+  fallback. This remains the strongest latency/accuracy operating point.
+- Use label-likelihood and leave-one-out occlusion as analysis tools only.
+  They are useful for diagnosing frame importance but too slow, or too
+  preliminary, to be the deployment gate.
+- The next occlusion set should be hard rows: low-confidence rows,
+  threshold-near rows, or rows where 4-frame and 8-frame predictions disagree.

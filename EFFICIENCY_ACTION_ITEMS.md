@@ -501,7 +501,11 @@
   full-validation artifacts.
   - Middle/last frames recover some grooming cases but lose many
     `Walking/Running` and `Occluded` examples.
-- [ ] Use these signals to guide compressed-frame policy.
+- [x] Use these signals to guide compressed-frame policy.
+  - Current policy direction: keep uniform 4-frame as the default compressed
+    pass; avoid global middle/last replacement; use class-aware entropy routing
+    to recover hard rows; target future occlusion analysis at threshold-near or
+    4-frame/8-frame-disagreement rows instead of easy rows.
 
 ## Visual-Token Consolidation
 
