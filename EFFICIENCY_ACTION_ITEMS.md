@@ -404,8 +404,8 @@
   - [x] median latency
   - [x] p90 latency
   - [x] fallback rate
-  - [ ] fallback rate by class
-  - [ ] accuracy per millisecond
+  - [x] fallback rate by class
+  - [x] accuracy per millisecond
 
 ## Frame Selection Policies
 

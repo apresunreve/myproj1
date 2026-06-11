@@ -373,6 +373,33 @@ Class-aware fallback row counts:
 | `Walking/Running` | 97 |
 | `Self-Grooming` | 12 |
 
+Fallback rate by gold class for the selected class-aware system:
+
+| Gold class | Rows | Fallback rows | Fallback rate |
+|---|---:|---:|---:|
+| `Being Groomed` | 251 | 33 | 0.1315 |
+| `Drinking` | 56 | 1 | 0.0179 |
+| `Fighting/Playing` | 65 | 12 | 0.1846 |
+| `Foraging` | 93 | 9 | 0.0968 |
+| `Grooming Somebody` | 211 | 43 | 0.2038 |
+| `Infant-Carrying` | 43 | 5 | 0.1163 |
+| `Mounting` | 2 | 1 | 0.5000 |
+| `Mutual Grooming` | 29 | 0 | 0.0000 |
+| `Occluded` | 815 | 103 | 0.1264 |
+| `Self-Grooming` | 49 | 2 | 0.0408 |
+| `Sitting/Standing` | 3370 | 166 | 0.0493 |
+| `Sleeping` | 157 | 6 | 0.0382 |
+| `Walking/Running` | 1057 | 57 | 0.0539 |
+
+Quality per median second:
+
+| System | Accuracy / median s | Macro F1 / median s |
+|---|---:|---:|
+| 4-frame only | 3.1258 | 1.6852 |
+| Class-aware entropy to 8-frame | 3.1376 | 1.7066 |
+| Global entropy 0.85 to 8-frame | 3.1065 | 1.6945 |
+| 8-frame only | 2.5313 | 1.3831 |
+
 Bootstrap paired differences versus 8-frame only:
 
 | System | Accuracy diff | Macro-F1 diff |
