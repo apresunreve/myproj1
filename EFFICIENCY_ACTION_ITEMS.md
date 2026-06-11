@@ -206,6 +206,17 @@
   - Paired efficiency-minus-quality differences: accuracy `+0.0037`
     (`p>0=0.9730`), macro F1 `-0.0175` (`p<0=0.9980`), fallback load
     `-0.5971`.
+- [x] Test MiniCPM joint adapter as an additional BaboonLand fallback
+  specialist.
+  - Joint as all fallback rows is worse: accuracy `0.7661`, macro F1 `0.4105`
+  - A mapped three-fallback policy improves high-load accuracy: standard
+    MiniCPM by default, class-balanced MiniCPM for `Drinking`, and joint
+    MiniCPM for `Being Groomed`, `Fighting/Playing`, `Foraging`, `Mounting`,
+    `Sleeping`, and `Walking/Running`.
+  - Mapped policy: accuracy `0.7778`, macro F1 `0.4425`, fallback load
+    `0.8959`.
+  - Bootstrap versus quality-macro policy: accuracy diff `+0.0056`
+    (`P(diff>0)=0.9990`), macro-F1 diff `-0.0024` with CI crossing zero.
 - [ ] Train or select a stronger/lightweight BaboonLand rare-class specialist;
   the dual MiniCPM fallback improves macro F1 but still routes most rows, so it
   is not yet a latency-saving cascade.

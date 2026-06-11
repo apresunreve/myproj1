@@ -782,6 +782,48 @@ strongly reduces fallback load, but it very likely sacrifices macro F1. The
 quality-first policy remains the best choice when rare-class macro F1 is the
 primary objective.
 
+BaboonLand mapped three-fallback accuracy point:
+
+```text
+artifacts/full_eval/adaptive_fallback/baboonland_qwen3b_predset_mapped_standard_classbalanced_joint/metrics.json
+artifacts/full_eval/adaptive_fallback/baboonland_policy_uncertainty/quality_efficiency_accuracy_mapped_bootstrap.json
+```
+
+The MiniCPM joint adapter was also tested as a fallback specialist. It is worse
+than the BaboonLand-specific MiniCPM adapter when used for every fallback row
+(`accuracy=0.7661`, `macro_f1=0.4105`), but it is useful for selected routed
+prediction labels. A mapped three-fallback policy was evaluated:
+
+- Standard MiniCPM is the default fallback.
+- Class-balanced MiniCPM handles routed rows whose Qwen prediction is
+  `Drinking`.
+- Joint MiniCPM handles routed rows whose Qwen prediction is `Being Groomed`,
+  `Fighting/Playing`, `Foraging`, `Mounting`, `Sleeping`, or
+  `Walking/Running`.
+
+| System | Accuracy | Macro F1 | Fallback load |
+|---|---:|---:|---:|
+| Quality-macro dual MiniCPM | 0.7722 | 0.4448 | 0.8959 |
+| Efficiency low-load dual MiniCPM | 0.7759 | 0.4275 | 0.2988 |
+| Accuracy-mapped three-fallback | 0.7778 | 0.4425 | 0.8959 |
+
+Bootstrap paired differences for accuracy-mapped minus quality-macro:
+
+| Metric | Mean difference | 95% CI | Probability |
+|---|---:|---:|---:|
+| Accuracy | +0.0056 | 0.0016..0.0095 | `P(diff > 0)=0.9990` |
+| Macro F1 | -0.0024 | -0.0152..0.0105 | `P(diff < 0)=0.6505` |
+| Fallback load | 0.0000 | 0.0000..0.0000 | NA |
+
+Interpretation:
+
+- The mapped three-fallback policy is the current best BaboonLand accuracy
+  point.
+- Its macro-F1 is slightly below the quality-macro policy, but the bootstrap CI
+  crosses zero, so the macro-F1 difference is not stable in this validation
+  sample.
+- It is still a high-load policy; it does not solve the latency objective.
+
 ## KABR Policy Uncertainty And Threshold Tradeoff
 
 After the BaboonLand check, the same grouped-bootstrap comparison was run on
