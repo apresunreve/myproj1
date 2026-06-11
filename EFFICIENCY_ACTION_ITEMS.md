@@ -474,7 +474,14 @@
 - [x] Start with Qwen2.5-VL only.
   - Initial smoke uses Qwen2.5-VL-3B BaboonLand B2 generation-logit
     confidence on the first 20 BaboonLand validation rows.
-- [ ] Measure frame occlusion sensitivity.
+- [x] Measure frame occlusion sensitivity.
+  - Initial smoke: materialized 5 original BaboonLand rows plus 40
+    leave-one-frame-out variants for Qwen2.5-VL-3B B2.
+  - Scripts: `scripts/materialize_frame_ablation_jsonl.py`,
+    `scripts/analyze_frame_ablation_effects.py`
+  - Result: original and ablated variants were all correct; no single-frame
+    omission changed predictions on this easy subset, but later-frame drops
+    slightly increased entropy.
 - [ ] Measure label-likelihood drop when removing frames.
 - [x] Measure confidence changes under frame subsets.
   - Script: `scripts/analyze_confidence_subset_changes.py`

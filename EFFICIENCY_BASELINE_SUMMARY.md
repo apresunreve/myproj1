@@ -1442,3 +1442,47 @@ Interpretation:
   calibration must be checked before using frame count as a routing signal.
 - This is a smoke result only; full Qwen occlusion or larger stratified checks
   are still needed before changing the Qwen routing policy.
+
+## Qwen Leave-One-Frame-Out Smoke
+
+A small leave-one-frame-out ablation was run for Qwen2.5-VL-3B BaboonLand B2
+on the first five BaboonLand validation rows. Each original 8-frame row was
+duplicated into eight variants, each dropping one frame.
+
+Artifacts:
+
+```text
+scripts/materialize_frame_ablation_jsonl.py
+scripts/analyze_frame_ablation_effects.py
+artifacts/smoke_eval/qwen_frame_ablation/baboonland_first5_leave_one_out.jsonl
+artifacts/smoke_eval/qwen_frame_ablation/qwen3b_baboonland_b2_first5_leave_one_out.jsonl.metrics.json
+artifacts/smoke_eval/qwen_frame_ablation/qwen3b_baboonland_b2_first5_leave_one_out_analysis.json
+```
+
+Result:
+
+| Rows | Original accuracy | Ablated-variant accuracy | Prediction changes |
+|---:|---:|---:|---:|
+| 5 originals, 40 ablations | 1.0000 | 1.0000 | 0 |
+
+Mean confidence deltas by dropped frame index, relative to the original
+8-frame row:
+
+| Dropped frame | Mean-token entropy delta | First-token prob delta |
+|---:|---:|---:|
+| 0 | -0.0014 | +0.0021 |
+| 1 | +0.0036 | -0.0026 |
+| 2 | -0.0015 | +0.0008 |
+| 3 | +0.0002 | +0.0001 |
+| 4 | -0.0020 | +0.0012 |
+| 5 | +0.0013 | -0.0008 |
+| 6 | +0.0034 | -0.0019 |
+| 7 | +0.0048 | -0.0034 |
+
+Interpretation:
+
+- This easy subset is prediction-stable under single-frame omission.
+- The later frame drops show the largest entropy increase, but the effect is
+  small and did not change predictions.
+- The next occlusion run should target harder rows: rows where 4-frame and
+  8-frame Qwen disagree, or rows near a confidence threshold.
