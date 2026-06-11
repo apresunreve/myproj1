@@ -1324,3 +1324,36 @@ Interpretation:
   candidate.
 - This is a smoke result only; the next full-validation comparison should run
   `last` and `middle` before changing the main routing policy.
+
+Full-validation follow-up:
+
+```text
+artifacts/full_eval/frame_selection/minicpm_baboonland_4frames_last_full.jsonl.metrics.json
+artifacts/full_eval/frame_selection/minicpm_baboonland_4frames_middle_full.jsonl.metrics.json
+artifacts/full_eval/frame_selection/minicpm_baboonland_frame_selection_bootstrap.json
+```
+
+| Full-validation policy | Accuracy | Macro F1 | Median ms | P90 ms |
+|---|---:|---:|---:|---:|
+| 4-frame uniform | 0.7688 | 0.4145 | 247.11 | 252.42 |
+| 4-frame middle | 0.7633 | 0.4111 | 242.61 | 250.64 |
+| 4-frame last | 0.7525 | 0.3914 | 240.64 | 254.42 |
+| 8-frame uniform | 0.7709 | 0.4212 | 304.54 | 340.65 |
+
+Paired grouped bootstrap versus 4-frame uniform, grouped by ID prefix before
+the first colon with `5577` groups and `2000` samples:
+
+| Policy | Accuracy diff | Macro-F1 diff |
+|---|---:|---:|
+| 4-frame middle minus uniform | -0.0055, CI `-0.0118..0.0010`, `P(diff<0)=0.9450` | -0.0034, CI `-0.0185..0.0122`, `P(diff<0)=0.6700` |
+| 4-frame last minus uniform | -0.0162, CI `-0.0230..-0.0095`, `P(diff<0)=1.0000` | -0.0230, CI `-0.0400..-0.0063`, `P(diff<0)=0.9985` |
+| 8-frame uniform minus 4-frame uniform | +0.0020, CI `-0.0027..0.0069`, `P(diff>0)=0.8000` | +0.0066, CI `-0.0066..0.0201`, `P(diff>0)=0.8345` |
+
+Interpretation:
+
+- The smoke result did not generalize. Uniform 4-frame sampling remains the
+  best current compressed-frame policy.
+- Middle-frame selection is close to uniform and slightly faster, but the
+  paired bootstrap does not support replacing uniform.
+- Last-frame selection is a negative result: it is significantly worse than
+  uniform on both accuracy and macro F1.

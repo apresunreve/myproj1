@@ -435,8 +435,18 @@
 - [ ] Implement simple high-motion frame selection.
 - [ ] Implement redundancy filtering if useful.
 - [x] Compare frame policies at the same average frame count on a smoke subset.
-- [ ] Run full-validation frame-policy comparison for the best smoke candidates
+- [x] Run full-validation frame-policy comparison for the best smoke candidates
   (`last` for accuracy and `middle` for macro F1).
+  - `last`: accuracy `0.7525`, macro F1 `0.3914`, median `240.64 ms`,
+    p90 `254.42 ms`.
+  - `middle`: accuracy `0.7633`, macro F1 `0.4111`, median `242.61 ms`,
+    p90 `250.64 ms`.
+  - Uniform 4-frame remains better: accuracy `0.7688`, macro F1 `0.4145`,
+    median `247.11 ms`, p90 `252.42 ms`.
+  - Bootstrap vs uniform: `middle` accuracy diff `-0.0055`
+    (`CI -0.0118..0.0010`), macro-F1 diff `-0.0034`
+    (`CI -0.0185..0.0122`); `last` is significantly worse on both accuracy
+    and macro F1.
 
 ## Adapter-Aware Importance
 
