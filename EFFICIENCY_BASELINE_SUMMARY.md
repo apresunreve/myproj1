@@ -1403,3 +1403,42 @@ Interpretation:
   `Occluded`, two high-impact labels for overall accuracy.
 - A future frame policy should be class-conditional or confidence-conditional,
   not a single global replacement for uniform sampling.
+
+## Qwen Frame-Confidence Smoke
+
+As the first Qwen-specific adapter-aware check, Qwen2.5-VL-3B BaboonLand B2
+generation-logit confidence was evaluated on the same first 20 BaboonLand
+validation rows with `2`, `4`, and `8` uniformly sampled frames.
+
+Artifacts:
+
+```text
+scripts/analyze_confidence_subset_changes.py
+artifacts/smoke_eval/qwen_frame_confidence/qwen3b_baboonland_b2_2frames_20.jsonl.metrics.json
+artifacts/smoke_eval/qwen_frame_confidence/qwen3b_baboonland_b2_4frames_20.jsonl.metrics.json
+artifacts/smoke_eval/qwen_frame_confidence/qwen3b_baboonland_b2_8frames_20.jsonl.metrics.json
+artifacts/smoke_eval/qwen_frame_confidence/qwen3b_baboonland_b2_frame_confidence_changes_20.json
+```
+
+| Qwen input frames | Accuracy | Median ms | Mean-token entropy median | First-token prob median | Mean-token prob median |
+|---:|---:|---:|---:|---:|---:|
+| 2 | 0.7000 | 196.37 | 0.1182 | 0.9305 | 0.9768 |
+| 4 | 0.7500 | 254.54 | 0.1108 | 0.9341 | 0.9780 |
+| 8 | 0.7000 | 410.25 | 0.1154 | 0.9309 | 0.9769 |
+
+Paired changes versus 4-frame Qwen:
+
+| Target | Prediction change rate | Net correct gain | Mean entropy delta | First-token prob delta |
+|---|---:|---:|---:|---:|
+| 2-frame minus 4-frame | 0.1000 | -1 | -0.0443 | +0.0779 |
+| 8-frame minus 4-frame | 0.1500 | -1 | -0.0115 | +0.0033 |
+
+Interpretation:
+
+- More frames did not monotonically improve this Qwen smoke subset: 4 frames
+  was best, while 8 frames was slower and lost one row relative to 4 frames.
+- Confidence also did not behave monotonically with frame count. The 2-frame
+  run had lower mean entropy on average despite lower accuracy, so confidence
+  calibration must be checked before using frame count as a routing signal.
+- This is a smoke result only; full Qwen occlusion or larger stratified checks
+  are still needed before changing the Qwen routing policy.

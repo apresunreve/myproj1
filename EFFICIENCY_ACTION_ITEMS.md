@@ -471,11 +471,24 @@
 
 ## Adapter-Aware Importance
 
-- [ ] Start with Qwen2.5-VL only.
+- [x] Start with Qwen2.5-VL only.
+  - Initial smoke uses Qwen2.5-VL-3B BaboonLand B2 generation-logit
+    confidence on the first 20 BaboonLand validation rows.
 - [ ] Measure frame occlusion sensitivity.
 - [ ] Measure label-likelihood drop when removing frames.
-- [ ] Measure confidence changes under frame subsets.
-- [ ] Estimate class-specific frame-position priors.
+- [x] Measure confidence changes under frame subsets.
+  - Script: `scripts/analyze_confidence_subset_changes.py`
+  - Artifacts:
+    `artifacts/smoke_eval/qwen_frame_confidence/qwen3b_baboonland_b2_2frames_20.jsonl.metrics.json`,
+    `artifacts/smoke_eval/qwen_frame_confidence/qwen3b_baboonland_b2_4frames_20.jsonl.metrics.json`,
+    `artifacts/smoke_eval/qwen_frame_confidence/qwen3b_baboonland_b2_8frames_20.jsonl.metrics.json`,
+    `artifacts/smoke_eval/qwen_frame_confidence/qwen3b_baboonland_b2_frame_confidence_changes_20.json`.
+  - Result: 4-frame Qwen was best on this smoke subset (`0.7500`
+    accuracy); 2-frame and 8-frame both scored `0.7000`.
+- [x] Estimate class-specific frame-position priors from existing MiniCPM
+  full-validation artifacts.
+  - Middle/last frames recover some grooming cases but lose many
+    `Walking/Running` and `Occluded` examples.
 - [ ] Use these signals to guide compressed-frame policy.
 
 ## Visual-Token Consolidation
