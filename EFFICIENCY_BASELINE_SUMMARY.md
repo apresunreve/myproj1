@@ -1376,3 +1376,30 @@ Interpretation:
   paired bootstrap does not support replacing uniform.
 - Last-frame selection is a negative result: it is significantly worse than
   uniform on both accuracy and macro F1.
+
+Class-level frame-subset effects:
+
+```text
+scripts/analyze_frame_subset_effects.py
+artifacts/full_eval/frame_selection/minicpm_baboonland_frame_subset_effects.json
+```
+
+The analysis compares each policy against 4-frame uniform on the same `6198`
+rows and reports, by gold label, how many examples become correct only under
+the target policy versus only under 4-frame uniform.
+
+| Target policy | Main gains vs 4-frame uniform | Main losses vs 4-frame uniform |
+|---|---|---|
+| 2-frame uniform | `Occluded +17`, `Sitting/Standing +11`, `Fighting/Playing +2` | `Walking/Running -123`, `Being Groomed -15`, `Grooming Somebody -13`, `Drinking -10` |
+| 8-frame uniform | `Being Groomed +17`, `Grooming Somebody +12`, `Sitting/Standing +11` | `Walking/Running -21`, `Occluded -9` |
+| 4-frame middle | `Sitting/Standing +26`, `Being Groomed +11`, `Grooming Somebody +11` | `Walking/Running -77`, `Occluded -4`, `Foraging -3` |
+| 4-frame last | `Being Groomed +16`, `Sitting/Standing +12`, `Grooming Somebody +3` | `Walking/Running -105`, `Occluded -20`, `Fighting/Playing -4` |
+
+Interpretation:
+
+- The later/centered-frame policies are not uniformly bad: they recover some
+  grooming interaction examples.
+- They fail as defaults because they strongly degrade `Walking/Running` and
+  `Occluded`, two high-impact labels for overall accuracy.
+- A future frame policy should be class-conditional or confidence-conditional,
+  not a single global replacement for uniform sampling.

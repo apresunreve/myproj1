@@ -460,6 +460,14 @@
     (`CI -0.0118..0.0010`), macro-F1 diff `-0.0034`
     (`CI -0.0185..0.0122`); `last` is significantly worse on both accuracy
     and macro F1.
+- [x] Analyze class-specific frame-subset effects from existing MiniCPM
+  artifacts.
+  - Script: `scripts/analyze_frame_subset_effects.py`
+  - Output:
+    `artifacts/full_eval/frame_selection/minicpm_baboonland_frame_subset_effects.json`
+  - Finding: middle/last frames help grooming-related labels but lose many
+    `Walking/Running` and `Occluded` cases, so uniform remains the best
+    default compressed-frame policy.
 
 ## Adapter-Aware Importance
 
