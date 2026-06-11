@@ -342,12 +342,31 @@
     `0.0338` for correct rows vs `0.2668` for incorrect rows.
 - [ ] Replace the validation-set-tuned predicted-label proxy with a deployable
   confidence gate.
+- [x] Run full MiniCPM `4`-frame generation-logit confidence on BaboonLand.
+  - Output:
+    `artifacts/full_eval/frame_subsample/minicpm_baboonland_4frames_genlogit_full.jsonl.metrics.json`
+  - Accuracy `0.7688`, macro F1 `0.4145`, parsed rate `1.0000`, median
+    `245.95 ms`, p90 `253.94 ms`.
+- [x] Sweep deployable single-pass entropy gates for `4`-frame to `8`-frame
+  fallback.
+  - `0.80` retained-accuracy target: entropy threshold `0.299233`, fallback
+    load `0.0910`, system accuracy `0.7693`, macro F1 `0.4149`, median
+    `246.69 ms`, p90 `415.74 ms`.
+  - `0.85` retained-accuracy target: entropy threshold `0.168531`, fallback
+    load `0.2323`, system accuracy `0.7707`, macro F1 `0.4204`, median
+    `248.10 ms`, p90 `552.57 ms`.
+- [x] Bootstrap the deployable entropy-gated fallback systems.
+  - Output:
+    `artifacts/full_eval/frame_subsample/minicpm_baboonland_4f_entropy_to_8f_bootstrap.json`
+  - `0.85` entropy gate vs 8-frame: accuracy diff `-0.0002`
+    (`CI -0.0011..0.0008`), macro-F1 diff `-0.0007`
+    (`CI -0.0051..0.0022`).
 - [ ] Add fallback logic:
   - [x] run compressed frame pass
-  - [ ] compute deployable confidence
-  - [ ] accept if confidence is high
+  - [x] compute deployable confidence
+  - [x] accept if confidence is high
   - [x] rerun full 8-frame input when the proxy gate routes the row
-- [ ] Sweep confidence thresholds.
+- [x] Sweep confidence thresholds.
 - [ ] Report:
   - [x] accuracy
   - [x] macro F1

@@ -254,6 +254,80 @@ Confidence separation on this smoke:
 This is the right next gate candidate because it uses one 4-frame pass and
 does not require validation-label-tuned prediction sets or a second cheap pass.
 
+## MiniCPM 4-Frame Entropy Gate To 8-Frame Fallback
+
+The full 4-frame MiniCPM generation-logit confidence run completed on all
+`6198` BaboonLand validation rows:
+
+```text
+artifacts/full_eval/frame_subsample/minicpm_baboonland_4frames_genlogit_full.jsonl
+artifacts/full_eval/frame_subsample/minicpm_baboonland_4frames_genlogit_full.jsonl.metrics.json
+```
+
+Result:
+
+```text
+accuracy=0.7688
+macro_f1=0.4145
+parsed_rate=1.0000
+latency_median_ms=245.95
+latency_p90_ms=253.94
+```
+
+Full-run confidence separation:
+
+| Metric | Correct median | Incorrect median |
+|---|---:|---:|
+| First-token probability | 0.9839 | 0.8504 |
+| Mean-token entropy | 0.0329 | 0.1711 |
+
+Threshold sweeps:
+
+```text
+artifacts/full_eval/frame_subsample/minicpm_baboonland_4frames_genlogit_threshold_sweep_080.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_4frames_genlogit_threshold_sweep_085.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_4frames_genlogit_threshold_sweep_090.json
+```
+
+| Retained-accuracy target | Metric | Threshold | Coverage | Fallback load | Retained accuracy | Error capture |
+|---:|---|---:|---:|---:|---:|---:|
+| 0.80 | mean-token entropy <= | 0.299233 | 0.9090 | 0.0910 | 0.8030 | 0.2254 |
+| 0.85 | mean-token entropy <= | 0.168531 | 0.7677 | 0.2323 | 0.8512 | 0.5059 |
+| 0.90 | mean-token entropy <= | 0.046366 | 0.5152 | 0.4848 | 0.9004 | 0.7781 |
+
+The two practical thresholds were evaluated with 8-frame fallback:
+
+```text
+artifacts/full_eval/frame_subsample/minicpm_baboonland_4f_entropy080_to_8f_system.metrics.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_4f_entropy085_to_8f_system.metrics.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_4f_entropy_to_8f_bootstrap.json
+```
+
+| System | Fallback load | Accuracy | Macro F1 | Median ms | P90 ms |
+|---|---:|---:|---:|---:|---:|
+| 4-frame only | 0.0000 | 0.7688 | 0.4145 | 245.95 | 253.94 |
+| Entropy 0.80 to 8-frame | 0.0910 | 0.7693 | 0.4149 | 246.69 | 415.74 |
+| Entropy 0.85 to 8-frame | 0.2323 | 0.7707 | 0.4204 | 248.10 | 552.57 |
+| 8-frame only | NA | 0.7709 | 0.4212 | 304.54 | 340.65 |
+
+Bootstrap paired differences versus 8-frame only:
+
+| System | Accuracy diff | Macro-F1 diff |
+|---|---:|---:|
+| Entropy 0.80 to 8-frame | -0.0017, CI `-0.0050..0.0015` | -0.0062, CI `-0.0127..-0.0004` |
+| Entropy 0.85 to 8-frame | -0.0002, CI `-0.0011..0.0008` | -0.0007, CI `-0.0051..0.0022` |
+
+Interpretation:
+
+- The 0.85 entropy gate is the best current deployable efficiency point:
+  quality is statistically indistinguishable from 8-frame only, median latency
+  stays close to 4-frame, and only 23.2% of rows rerun with 8 frames.
+- The tradeoff is tail latency: fallback rows pay for both passes, so p90
+  latency is higher than 8-frame only.
+- The next refinement should target p90, either by using the 0.80 threshold, a
+  cheaper fallback, or a class-aware threshold that avoids rerunning many
+  high-latency common cases.
+
 New per-row fields in `scripts/eval_cross_dataset_vlm.py`:
 
 - `latency_ms`
