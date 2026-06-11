@@ -880,3 +880,38 @@ Interpretation:
 - The 25% KABR policy is the current best rare-class macro-F1 point, with
   clear bootstrap evidence that it improves macro F1 over the lower-load
   policies while using more fallback and slightly reducing accuracy.
+
+## Compressed-Frame MiniCPM Smoke
+
+`scripts/eval_cross_dataset_vlm.py` now supports `--max_input_frames`, which
+uniformly subsamples each row's `image_paths` before inference. A balanced
+BaboonLand subset was created to smoke-test the accuracy/latency tradeoff:
+
+```text
+artifacts/smoke_eval/frame_subsample/baboonland_val_balanced_20pc.jsonl
+artifacts/smoke_eval/frame_subsample/minicpm_baboonland_1frames_bal20pc.jsonl.metrics.json
+artifacts/smoke_eval/frame_subsample/minicpm_baboonland_2frames_bal20pc.jsonl.metrics.json
+artifacts/smoke_eval/frame_subsample/minicpm_baboonland_4frames_bal20pc.jsonl.metrics.json
+artifacts/smoke_eval/frame_subsample/minicpm_baboonland_8frames_bal20pc.jsonl.metrics.json
+```
+
+The subset has 242 rows: up to 20 examples per BaboonLand class, with only 2
+available `Mounting` validation rows.
+
+| Input frames | Accuracy | Macro F1 | Median ms | P90 ms | Rows/sec |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 0.3223 | 0.2636 | 212.00 | 223.59 | 4.6568 |
+| 2 | 0.3595 | 0.2945 | 223.21 | 231.04 | 4.6210 |
+| 4 | 0.3884 | 0.3124 | 246.57 | 251.60 | 4.2118 |
+| 8 | 0.4256 | 0.3392 | 302.87 | 328.48 | 3.3106 |
+
+Interpretation:
+
+- The frame-count control works and records the effective `num_input_frames`.
+- More frames monotonically improve accuracy and macro F1 on this balanced
+  subset.
+- Reducing from 8 to 2 frames cuts median latency by about 26% but loses about
+  0.0447 accuracy and 0.0447 macro F1 on this subset.
+- The next step is a full-validation or larger stratified run, then confidence
+  gating: accept cheap low-frame predictions only when confidence is high and
+  fall back to 8 frames otherwise.

@@ -249,12 +249,19 @@
 
 ## Compressed-Frame Inference
 
-- [ ] Add fixed frame-count evaluation modes.
-  - [ ] 1 frame
-  - [ ] 2 frames
-  - [ ] 4 frames
-  - [ ] 8 frames
-- [ ] Compare fixed compressed inputs against full 8-frame generation.
+- [x] Add fixed frame-count evaluation mode to `scripts/eval_cross_dataset_vlm.py`.
+  - CLI: `--max_input_frames`
+  - Sampling: uniform over each row's `image_paths`
+- [x] Smoke test fixed compressed inputs against 8-frame generation on a
+  balanced BaboonLand subset.
+  - Subset: `242` rows, up to `20` per class; `Mounting` has only `2`
+    validation rows.
+  - `1` frame: accuracy `0.3223`, macro F1 `0.2636`, median `212.00 ms`
+  - `2` frames: accuracy `0.3595`, macro F1 `0.2945`, median `223.21 ms`
+  - `4` frames: accuracy `0.3884`, macro F1 `0.3124`, median `246.57 ms`
+  - `8` frames: accuracy `0.4256`, macro F1 `0.3392`, median `302.87 ms`
+- [ ] Compare fixed compressed inputs against full 8-frame generation on the
+  full BaboonLand validation split.
 - [ ] Record latency and accuracy for each frame count.
 
 ## Confidence-Gated Fallback

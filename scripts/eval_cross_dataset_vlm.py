@@ -18,6 +18,7 @@ import sys
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -124,6 +125,16 @@ def load_jsonl(path: Path, limit: int | None = None) -> list[dict]:
             if limit is not None and len(rows) >= limit:
                 break
     return rows
+
+
+def uniform_subsample(items: list[Any], max_items: int | None) -> list[Any]:
+    if max_items is None or max_items <= 0 or len(items) <= max_items:
+        return list(items)
+    if max_items == 1:
+        return [items[len(items) // 2]]
+    last_index = len(items) - 1
+    indices = [round(i * last_index / (max_items - 1)) for i in range(max_items)]
+    return [items[index] for index in indices]
 
 
 def extract_label(text: str, target: str) -> str | None:
@@ -251,6 +262,12 @@ def main() -> None:
     parser.add_argument("--adapter_path", default=None)
     parser.add_argument("--max_samples", type=int, default=None)
     parser.add_argument("--max_new_tokens", type=int, default=16)
+    parser.add_argument(
+        "--max_input_frames",
+        type=int,
+        default=None,
+        help="Uniformly subsample each row's image_paths to this many frames before evaluation.",
+    )
     parser.add_argument("--output_jsonl", required=True)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
@@ -309,7 +326,7 @@ def main() -> None:
             # label in metadata.behavior; fall back to row.answer just in case.
             if not isinstance(gold_label, str):
                 gold_label = row.get("answer", "")
-            image_paths = row["image_paths"]
+            image_paths = uniform_subsample(row["image_paths"], args.max_input_frames)
             prompt = row["prompt"]
             latency_ms = None
             try:
