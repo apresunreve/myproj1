@@ -48,6 +48,29 @@ def load_rows(path: Path, max_samples: int | None = None) -> list[dict]:
     return rows
 
 
+def infer_labels(rows: list[dict]) -> list[str]:
+    labels = []
+    seen = set()
+    for row in rows:
+        label = row.get("answer") or row.get("metadata", {}).get("behavior")
+        if isinstance(label, str) and label not in seen:
+            seen.add(label)
+            labels.append(label)
+    return labels
+
+
+def parse_labels_arg(value: str | None, rows: list[dict]) -> list[str]:
+    if value is None:
+        return BEHAVIOR_LABELS
+    if value.strip().lower() == "auto":
+        labels = infer_labels(rows)
+    else:
+        labels = [item.strip() for item in value.split(",") if item.strip()]
+    if not labels:
+        raise ValueError("--labels must be omitted, 'auto', or a comma-separated non-empty label list")
+    return labels
+
+
 def _safe_mean(values: list[float]) -> float | None:
     return statistics.mean(values) if values else None
 
@@ -117,6 +140,7 @@ def main() -> None:
     parser.add_argument("--val-jsonl", default="data/processed/kabr_behavior_val_cleaned.jsonl")
     parser.add_argument("--model-id", default="Qwen/Qwen2.5-VL-7B-Instruct")
     parser.add_argument("--adapter-path", default="artifacts/runs/qwen25vl7b_behavior_lora_full/checkpoint")
+    parser.add_argument("--labels", default=None, help="Omit for KABR labels, use 'auto', or pass comma-separated labels.")
     parser.add_argument("--samples-per-class", type=int, default=5, help="Use <=0 to evaluate rows in file order.")
     parser.add_argument("--max-samples", type=int, default=None, help="Optional row limit when --samples-per-class <=0.")
     parser.add_argument(
@@ -129,10 +153,12 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
 
+    candidate_rows = load_rows(Path(args.val_jsonl), max_samples=args.max_samples if args.samples_per_class <= 0 else None)
+    labels = parse_labels_arg(args.labels, candidate_rows)
     if args.samples_per_class > 0:
-        rows = load_balanced_rows(Path(args.val_jsonl), BEHAVIOR_LABELS, args.samples_per_class)
+        rows = load_balanced_rows(Path(args.val_jsonl), labels, args.samples_per_class)
     else:
-        rows = load_rows(Path(args.val_jsonl), max_samples=args.max_samples)
+        rows = candidate_rows
     output_path = Path(args.output_jsonl)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -167,12 +193,13 @@ def main() -> None:
         for idx, row in enumerate(pending_rows, start=1):
             gold = row.get("answer") or row.get("metadata", {}).get("behavior")
             t0 = time.perf_counter()
-            result = scorer.predict(row["image_paths"], row["prompt"], BEHAVIOR_LABELS)
+            result = scorer.predict(row["image_paths"], row["prompt"], labels)
             latency_ms = (time.perf_counter() - t0) * 1000.0
             record = {
                 "id": row["id"],
                 "inference_mode": "label_likelihood",
                 "gold_label": gold,
+                "metadata": row.get("metadata", {}),
                 "prediction": result.prediction,
                 "correct": result.prediction == gold,
                 "label_scores": result.label_scores,
@@ -193,7 +220,8 @@ def main() -> None:
                 acc = sum(1 for item in records if item["correct"]) / len(records)
                 print(f"[{idx}/{len(pending_rows)}] total={len(records)} accuracy_so_far={acc:.4f}", flush=True)
 
-    metrics = compute_metrics(records, BEHAVIOR_LABELS)
+    metrics = compute_metrics(records, labels)
+    metrics["labels"] = labels
     metrics_path = Path(str(output_path) + ".metrics.json")
     metrics_path.write_text(json.dumps(metrics, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     print(

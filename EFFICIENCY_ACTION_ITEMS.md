@@ -482,7 +482,12 @@
   - Result: original and ablated variants were all correct; no single-frame
     omission changed predictions on this easy subset, but later-frame drops
     slightly increased entropy.
-- [ ] Measure label-likelihood drop when removing frames.
+- [x] Measure label-likelihood drop when removing frames.
+  - Initial Qwen2.5-VL-3B B2 smoke: 2 original BaboonLand rows plus 16
+    leave-one-frame-out variants, scored with BaboonLand label likelihood.
+  - Result: predictions stayed correct, but dropping later frames reduced
+    label-likelihood margin and increased entropy; dropping early frames
+    slightly improved margin/lowered entropy on this tiny subset.
 - [x] Measure confidence changes under frame subsets.
   - Script: `scripts/analyze_confidence_subset_changes.py`
   - Artifacts:

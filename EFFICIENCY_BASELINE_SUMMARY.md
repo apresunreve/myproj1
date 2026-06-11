@@ -1486,3 +1486,47 @@ Interpretation:
   small and did not change predictions.
 - The next occlusion run should target harder rows: rows where 4-frame and
   8-frame Qwen disagree, or rows near a confidence threshold.
+
+## Qwen Label-Likelihood Frame-Ablation Smoke
+
+The same leave-one-frame-out setup was also tested with Qwen2.5-VL-3B
+BaboonLand B2 label-likelihood scoring on the first two BaboonLand validation
+rows. This measures how closed-set label likelihood changes when frames are
+removed, independent of free-form generation.
+
+Artifacts:
+
+```text
+artifacts/smoke_eval/qwen_frame_ablation/baboonland_first2_leave_one_out.jsonl
+artifacts/smoke_eval/qwen_frame_ablation/qwen3b_baboonland_b2_first2_leave_one_out_label_likelihood.jsonl.metrics.json
+artifacts/smoke_eval/qwen_frame_ablation/qwen3b_baboonland_b2_first2_leave_one_out_label_likelihood_analysis.json
+```
+
+Result:
+
+| Rows | Original accuracy | Ablated-variant accuracy | Median latency |
+|---:|---:|---:|---:|
+| 2 originals, 16 ablations | 1.0000 | 1.0000 | 4086.71 ms |
+
+Mean label-likelihood deltas by dropped frame index, relative to the original
+8-frame row:
+
+| Dropped frame | Entropy delta | Margin delta |
+|---:|---:|---:|
+| 0 | -0.0295 | +0.3750 |
+| 1 | -0.0190 | +0.3096 |
+| 2 | -0.0160 | +0.1833 |
+| 3 | +0.0008 | -0.0696 |
+| 4 | +0.0011 | -0.0696 |
+| 5 | +0.0132 | -0.1905 |
+| 6 | +0.0189 | -0.2386 |
+| 7 | +0.0078 | -0.1263 |
+
+Interpretation:
+
+- Prediction labels were stable on this tiny easy subset.
+- Label-likelihood confidence is more sensitive than generation output:
+  dropping later frames consistently reduces margin and increases entropy,
+  while dropping early frames slightly increases confidence.
+- Label likelihood remains too slow for direct routing here; use it as an
+  analysis signal, not the deployed gate.
