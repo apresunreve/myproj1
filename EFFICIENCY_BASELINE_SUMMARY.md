@@ -781,3 +781,60 @@ noise. The efficiency-first policy very likely improves accuracy and very
 strongly reduces fallback load, but it very likely sacrifices macro F1. The
 quality-first policy remains the best choice when rare-class macro F1 is the
 primary objective.
+
+## KABR Policy Uncertainty And Threshold Tradeoff
+
+After the BaboonLand check, the same grouped-bootstrap comparison was run on
+KABR. The KABR case differs because the quality-first policy is already fairly
+low-load: the previous balanced rare route sends 775 of 3981 rows to fallback
+instead of the 5553 of 6198 rows needed by the BaboonLand quality-first policy.
+
+```text
+artifacts/full_eval/adaptive_fallback/kabr_qwen_meanlogprob_dual_minicpm_assignment/split_validation.json
+artifacts/full_eval/adaptive_fallback/kabr_qwen_balanced_dual_minicpm_assignment/split_validation.json
+artifacts/full_eval/adaptive_fallback/kabr_qwen_threshold_tradeoff_dual_minicpm/route025_split_validation.json
+artifacts/full_eval/adaptive_fallback/kabr_policy_uncertainty/three_point_group_bootstrap.json
+```
+
+Three KABR operating points were materialized and compared:
+
+| Policy | Thresholds | Fallback rows | Fallback load | Accuracy | Macro F1 |
+|---|---|---:|---:|---:|---:|
+| Efficiency-first 10% | low confidence only | 406 | 0.1020 | 0.8731 | 0.6107 |
+| Balanced 20% | `Graze=-0.12`, `Walk=-0.24`, `Head Up=-0.10` | 775 | 0.1947 | 0.8716 | 0.6354 |
+| Quality-first 25% | `Graze=-0.04`, `Walk=-0.22`, `Head Up=-0.16` | 995 | 0.2499 | 0.8684 | 0.6537 |
+
+The quality-first 25% policy is the best current KABR macro-F1 point. It trades
+some accuracy for better rare-class recovery:
+
+| Label | 10% F1 | 20% F1 | 25% F1 |
+|---|---:|---:|---:|
+| Auto-Groom | 0.0000 | 0.1224 | 0.2154 |
+| Trot | 0.5155 | 0.5361 | 0.5455 |
+| Occluded | 0.3304 | 0.3485 | 0.4151 |
+| Browse | 0.6697 | 0.7500 | 0.7306 |
+| Run | 0.6796 | 0.6415 | 0.6415 |
+
+Grouped bootstrap with 3000 samples over 3315 ID-prefix groups:
+
+| System | Accuracy | Accuracy 95% CI | Macro F1 | Macro F1 95% CI | Fallback load | Fallback load 95% CI |
+|---|---:|---:|---:|---:|---:|---:|
+| Efficiency-first 10% | 0.8731 | 0.8624..0.8838 | 0.6107 | 0.5799..0.6371 | 0.1020 | 0.0922..0.1122 |
+| Balanced 20% | 0.8716 | 0.8608..0.8822 | 0.6354 | 0.6034..0.6656 | 0.1947 | 0.1819..0.2078 |
+| Quality-first 25% | 0.8684 | 0.8572..0.8793 | 0.6537 | 0.6213..0.6842 | 0.2499 | 0.2356..0.2646 |
+
+Paired differences versus the quality-first 25% policy:
+
+| Comparison | Accuracy diff | Macro-F1 diff | Fallback-load diff |
+|---|---:|---:|---:|
+| 10% minus 25% | +0.0048, CI `-0.0013..0.0114`, `P(diff>0)=0.9327` | -0.0424, CI `-0.0651..-0.0202`, `P(diff<0)=1.0000` | -0.1481, CI `-0.1599..-0.1363` |
+| 20% minus 25% | +0.0033, CI `-0.0010..0.0076`, `P(diff>0)=0.9280` | -0.0181, CI `-0.0373..-0.0005`, `P(diff<0)=0.9800` | -0.0554, CI `-0.0660..-0.0448` |
+
+Interpretation:
+
+- The 10% KABR policy is the accuracy/latency operating point.
+- The 20% KABR policy is a balanced point and matches the earlier tuned KABR
+  assignment result.
+- The 25% KABR policy is the current best rare-class macro-F1 point, with
+  clear bootstrap evidence that it improves macro F1 over the lower-load
+  policies while using more fallback and slightly reducing accuracy.

@@ -209,10 +209,22 @@
 - [ ] Train or select a stronger/lightweight BaboonLand rare-class specialist;
   the dual MiniCPM fallback improves macro F1 but still routes most rows, so it
   is not yet a latency-saving cascade.
-- [ ] Validate the KABR tuned rare-fallback model assignment on another split
-  before treating it as stable.
-- [ ] Validate the KABR rare-class routing thresholds on another split before
-  treating them as stable.
+- [x] Validate the KABR tuned rare-fallback model assignment on deterministic
+  half-splits.
+  - Existing balanced route: holdout accuracy `0.8719`, holdout macro F1
+    `0.6291`
+- [x] Bootstrap-validate KABR quality-first vs efficiency-first policies.
+  - `10%` fallback-load policy: accuracy `0.8731`, macro F1 `0.6107`
+  - `19.5%` fallback-load policy: accuracy `0.8716`, macro F1 `0.6354`
+  - `25%` fallback-load policy: accuracy `0.8684`, macro F1 `0.6537`
+  - Grouping: ID prefix before first colon; `3315` groups, `3000` bootstrap
+    samples.
+- [x] Tune KABR rare-class routing thresholds across representative fallback
+  loads.
+  - Best current KABR rare macro-F1 point uses thresholds:
+    `Graze=-0.04`, `Walk=-0.22`, `Head Up=-0.16`
+  - It routes `995/3981` rows and improves rare labels: Auto-Groom F1 `0.2154`,
+    Trot F1 `0.5455`, Occluded F1 `0.4151`.
 
 ## Eval Mode Plumbing
 
