@@ -10,6 +10,8 @@ build/
 dist/
 *.egg-info/
 data/
+!src/kabr_vlm/data/
+!src/kabr_vlm/data/*.py
 artifacts/
 logs/
 slurm-*.out
