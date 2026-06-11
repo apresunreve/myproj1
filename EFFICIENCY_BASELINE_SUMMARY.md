@@ -328,6 +328,67 @@ Interpretation:
   cheaper fallback, or a class-aware threshold that avoids rerunning many
   high-latency common cases.
 
+## MiniCPM Class-Aware Entropy Gate
+
+To reduce p90 latency, a validation-set sweep tested prediction-specific
+entropy thresholds for the 4-frame MiniCPM pass. The sweep only considered
+4-frame predicted labels where the 8-frame fallback helped on average:
+`Walking/Running`, `Occluded`, `Grooming Somebody`, and `Self-Grooming`.
+
+Artifacts:
+
+```text
+scripts/sweep_confidence_fallback_system.py
+artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_sweep.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_4f_classaware_entropy_to_8f_system.metrics.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_bootstrap.json
+```
+
+Selected thresholds:
+
+| 4-frame prediction | Route to 8-frame when mean-token entropy > |
+|---|---:|
+| `Walking/Running` | 0.30 |
+| `Occluded` | 0.24 |
+| `Grooming Somebody` | 0.16 |
+| `Self-Grooming` | 0.30 |
+
+Result:
+
+| System | Fallback load | Accuracy | Macro F1 | Median ms | P90 ms |
+|---|---:|---:|---:|---:|---:|
+| 4-frame only | 0.0000 | 0.7688 | 0.4145 | 245.95 | 253.94 |
+| Global entropy 0.85 to 8-frame | 0.2323 | 0.7707 | 0.4204 | 248.10 | 552.57 |
+| Class-aware entropy to 8-frame | 0.0707 | 0.7736 | 0.4208 | 246.57 | 274.71 |
+| 8-frame only | NA | 0.7709 | 0.4212 | 304.54 | 340.65 |
+
+Class-aware fallback row counts:
+
+| 4-frame prediction | Fallback rows |
+|---|---:|
+| `Occluded` | 228 |
+| `Grooming Somebody` | 101 |
+| `Walking/Running` | 97 |
+| `Self-Grooming` | 12 |
+
+Bootstrap paired differences versus 8-frame only:
+
+| System | Accuracy diff | Macro-F1 diff |
+|---|---:|---:|
+| Class-aware entropy to 8-frame | +0.0027, CI `-0.0011..0.0064` | -0.0004, CI `-0.0129..0.0112` |
+
+Interpretation:
+
+- This is the best current latency/quality point: it keeps macro F1
+  statistically indistinguishable from 8-frame, improves point-estimate
+  accuracy, and reduces both median and p90 latency versus 8-frame.
+- It also fixes the main weakness of the global 0.85 entropy gate: p90 drops
+  from `552.57 ms` to `274.71 ms` because fallback load falls from 23.2% to
+  7.1%.
+- Caveat: this is validation-set tuned. It should be checked on a true
+  held-out split or a deterministic half-split selection/evaluation protocol
+  before being reported as a stable deployment policy.
+
 New per-row fields in `scripts/eval_cross_dataset_vlm.py`:
 
 - `latency_ms`

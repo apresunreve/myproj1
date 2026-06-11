@@ -361,6 +361,19 @@
   - `0.85` entropy gate vs 8-frame: accuracy diff `-0.0002`
     (`CI -0.0011..0.0008`), macro-F1 diff `-0.0007`
     (`CI -0.0051..0.0022`).
+- [x] Sweep class-aware entropy thresholds to reduce p90 latency.
+  - Script: `scripts/sweep_confidence_fallback_system.py`
+  - Sweep:
+    `artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_sweep.json`
+  - Selected thresholds: `Walking/Running=0.30`, `Occluded=0.24`,
+    `Grooming Somebody=0.16`, `Self-Grooming=0.30`.
+  - Selected system:
+    `artifacts/full_eval/frame_subsample/minicpm_baboonland_4f_classaware_entropy_to_8f_system.metrics.json`
+  - Result: fallback load `0.0707`, accuracy `0.7736`, macro F1 `0.4208`,
+    median `246.57 ms`, p90 `274.71 ms`.
+  - Bootstrap vs 8-frame: accuracy diff `+0.0027`
+    (`CI -0.0011..0.0064`), macro-F1 diff `-0.0004`
+    (`CI -0.0129..0.0112`).
 - [ ] Add fallback logic:
   - [x] run compressed frame pass
   - [x] compute deployable confidence
