@@ -91,6 +91,44 @@ records latency-aware fields. Compact latency baselines are available, but
 older full-eval metrics need to be regenerated or post-processed before
 reporting full-dataset efficiency claims.
 
+## BaboonLand Fixed-Frame MiniCPM Eval
+
+Fixed-frame evaluation uses the standard MiniCPM-V 4.6 BaboonLand LoRA adapter
+and uniform subsampling of each row's input frames before generation.
+
+Full BaboonLand validation results:
+
+| Input frames | Rows | Accuracy | Macro F1 | Median ms | P90 ms | Peak GPU MB |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2 | 6198 | 0.7462 | 0.3728 | 225.18 | 236.55 | 2652.9 |
+| 8 | 6198 | 0.7709 | 0.4212 | 304.54 | 340.65 | 2866.8 |
+
+Outputs:
+
+```text
+artifacts/full_eval/frame_subsample/minicpm_baboonland_2frames_full.jsonl
+artifacts/full_eval/frame_subsample/minicpm_baboonland_8frames_full.jsonl
+artifacts/full_eval/frame_subsample/minicpm_baboonland_2v8_bootstrap.json
+```
+
+Paired group bootstrap, grouped by ID prefix before the first colon, used
+`5577` groups and `2000` bootstrap samples:
+
+| Comparison | Point diff | 95% CI | Probability |
+|---|---:|---:|---:|
+| 2-frame minus 8-frame accuracy | -0.0246 | -0.0323..-0.0169 | `P(diff<0)=1.0000` |
+| 2-frame minus 8-frame macro F1 | -0.0483 | -0.0706..-0.0264 | `P(diff<0)=1.0000` |
+
+Interpretation:
+
+- Two-frame MiniCPM reduces median latency by about `26.1%` and p90 latency by
+  about `30.6%` relative to the 8-frame input.
+- The quality loss is stable under grouped bootstrap, so fixed 2-frame
+  inference is a speed/quality operating point, not a free compression win.
+- Some labels improve under 2 frames (`Fighting/Playing`, `Foraging`,
+  `Sleeping`), but 8 frames is better for overall accuracy, macro F1,
+  `Walking/Running`, grooming labels, `Infant-Carrying`, and `Drinking`.
+
 New per-row fields in `scripts/eval_cross_dataset_vlm.py`:
 
 - `latency_ms`
