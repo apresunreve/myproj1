@@ -339,9 +339,11 @@ Artifacts:
 
 ```text
 scripts/sweep_confidence_fallback_system.py
+scripts/validate_confidence_fallback_split.py
 artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_sweep.json
 artifacts/full_eval/frame_subsample/minicpm_baboonland_4f_classaware_entropy_to_8f_system.metrics.json
 artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_bootstrap.json
+artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_split_validation.json
 ```
 
 Selected thresholds:
@@ -377,17 +379,34 @@ Bootstrap paired differences versus 8-frame only:
 |---|---:|---:|
 | Class-aware entropy to 8-frame | +0.0027, CI `-0.0011..0.0064` | -0.0004, CI `-0.0129..0.0112` |
 
+Deterministic 5-fold threshold-selection validation:
+
+Each fold selected prediction-specific thresholds on the other four folds,
+constrained to at most 10% fallback load on the training split, then evaluated
+the selected policy on the held-out fold. Three of five folds selected the
+same low-p90 thresholds as the full validation-set sweep. One fold lowered the
+`Walking/Running` threshold to `0.24`; one fold disabled `Walking/Running`
+routing.
+
+| Held-out metric | Mean | Std | Min | Max |
+|---|---:|---:|---:|---:|
+| Accuracy | 0.7726 | 0.0117 | 0.7565 | 0.7886 |
+| Macro F1 | 0.4081 | 0.0239 | 0.3744 | 0.4415 |
+| Fallback load | 0.0671 | 0.0196 | 0.0400 | 0.0913 |
+| Median ms | 246.54 | 0.31 | 246.05 | 246.85 |
+| P90 ms | 288.07 | 40.55 | 255.98 | 358.33 |
+
 Interpretation:
 
-- This is the best current latency/quality point: it keeps macro F1
-  statistically indistinguishable from 8-frame, improves point-estimate
-  accuracy, and reduces both median and p90 latency versus 8-frame.
+- This is the best current latency/accuracy point: the held-out split keeps
+  fallback load near 7%, improves point-estimate accuracy over 4-frame and
+  8-frame baselines, and keeps latency well below 8-frame.
 - It also fixes the main weakness of the global 0.85 entropy gate: p90 drops
   from `552.57 ms` to `274.71 ms` because fallback load falls from 23.2% to
   7.1%.
-- Caveat: this is validation-set tuned. It should be checked on a true
-  held-out split or a deterministic half-split selection/evaluation protocol
-  before being reported as a stable deployment policy.
+- Caveat: the in-sample macro-F1 point estimate does not hold up in the
+  deterministic split validation. Report this policy as an efficiency/accuracy
+  operating point unless a stronger macro-F1 threshold selection rule is found.
 
 New per-row fields in `scripts/eval_cross_dataset_vlm.py`:
 

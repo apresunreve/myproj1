@@ -374,6 +374,15 @@
   - Bootstrap vs 8-frame: accuracy diff `+0.0027`
     (`CI -0.0011..0.0064`), macro-F1 diff `-0.0004`
     (`CI -0.0129..0.0112`).
+- [x] Validate class-aware threshold selection with deterministic held-out
+  folds.
+  - Script: `scripts/validate_confidence_fallback_split.py`
+  - Output:
+    `artifacts/full_eval/frame_subsample/minicpm_baboonland_classaware_entropy_split_validation.json`
+  - 5-fold held-out mean: accuracy `0.7726`, macro F1 `0.4081`, fallback
+    load `0.0671`, median `246.54 ms`, p90 `288.07 ms`.
+  - Interpretation: the low fallback load and accuracy are stable; the
+    in-sample macro-F1 improvement should not be claimed as validated.
 - [ ] Add fallback logic:
   - [x] run compressed frame pass
   - [x] compute deployable confidence
