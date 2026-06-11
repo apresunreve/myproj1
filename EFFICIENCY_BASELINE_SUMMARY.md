@@ -184,6 +184,46 @@ Interpretation:
   agreement features that can be selected without tuning on the same
   validation labels.
 
+## BaboonLand Frame-Agreement Gate
+
+A deployable agreement proxy was also tested:
+
+1. Run 2-frame MiniCPM.
+2. Run 4-frame MiniCPM.
+3. Accept the 4-frame prediction when the 2-frame and 4-frame predictions
+   agree.
+4. Fall back to 8-frame MiniCPM when they disagree.
+
+Artifacts:
+
+```text
+scripts/evaluate_frame_agreement_fallback.py
+artifacts/full_eval/frame_subsample/frames2_4_agreement_to_8/agreement_metrics.json
+artifacts/full_eval/frame_subsample/frames2_4_agreement_to_8/agreement_bootstrap.json
+```
+
+Result:
+
+| System | Fallback load | Accuracy | Macro F1 | Median ms | P90 ms |
+|---|---:|---:|---:|---:|---:|
+| 2/4 agreement to 8-frame fallback | 0.0807 | 0.7690 | 0.4162 | 474.62 | 619.22 |
+
+Bootstrap paired differences versus 8-frame only:
+
+| Metric | Difference | 95% CI |
+|---|---:|---:|
+| Accuracy | -0.0020 | -0.0063..0.0023 |
+| Macro F1 | -0.0049 | -0.0182..0.0074 |
+
+Interpretation:
+
+- The agreement gate is deployable because it does not use validation labels.
+- It is not latency-efficient: every row pays for both the 2-frame and 4-frame
+  passes, so median latency is worse than the 8-frame-only baseline despite
+  only 8.1% fallback.
+- This points toward single-pass confidence from the 4-frame model, not
+  multi-pass agreement, as the next practical gate.
+
 New per-row fields in `scripts/eval_cross_dataset_vlm.py`:
 
 - `latency_ms`

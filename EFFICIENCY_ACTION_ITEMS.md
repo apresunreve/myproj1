@@ -319,6 +319,17 @@
     (`CI -0.0128..0.0096`).
   - Quality policy vs 8-frame: macro-F1 diff `+0.0069`
     (`CI 0.0009..0.0136`), but latency is worse because it reruns most rows.
+- [x] Test a deployable frame-agreement gate.
+  - Script: `scripts/evaluate_frame_agreement_fallback.py`
+  - Rule: run both `2`-frame and `4`-frame MiniCPM; accept the `4`-frame
+    prediction when the two predictions agree; otherwise fall back to `8`
+    frames.
+  - Output:
+    `artifacts/full_eval/frame_subsample/frames2_4_agreement_to_8/agreement_metrics.json`
+  - Result: fallback load `0.0807`, accuracy `0.7690`, macro F1 `0.4162`,
+    median `474.62 ms`, p90 `619.22 ms`.
+  - Interpretation: deployable, but not latency-efficient because every row
+    pays for both the `2`-frame and `4`-frame passes.
 - [ ] Replace the validation-set-tuned predicted-label proxy with a deployable
   confidence gate.
 - [ ] Add fallback logic:
