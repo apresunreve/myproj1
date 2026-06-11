@@ -20,6 +20,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+from PIL import Image
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
@@ -127,11 +129,62 @@ def load_jsonl(path: Path, limit: int | None = None) -> list[dict]:
     return rows
 
 
-def select_frame_indices(num_items: int, max_items: int | None, strategy: str) -> list[int]:
+def _mean_abs_diff(left: Image.Image, right: Image.Image) -> float:
+    left_pixels = list(left.getdata())
+    right_pixels = list(right.getdata())
+    if not left_pixels or len(left_pixels) != len(right_pixels):
+        return 0.0
+    return sum(abs(int(a) - int(b)) for a, b in zip(left_pixels, right_pixels, strict=True)) / len(left_pixels)
+
+
+def high_motion_indices(image_paths: list[str], max_items: int) -> list[int]:
+    if len(image_paths) <= max_items:
+        return list(range(len(image_paths)))
+    if max_items == 1:
+        return [len(image_paths) // 2]
+
+    thumbnails: list[Image.Image] = []
+    for path in image_paths:
+        with Image.open(path) as image:
+            thumbnails.append(image.convert("L").resize((64, 64)))
+
+    transition_scores = [
+        (score, idx - 1, idx)
+        for idx, score in enumerate(
+            (_mean_abs_diff(thumbnails[i - 1], thumbnails[i]) for i in range(1, len(thumbnails))),
+            start=1,
+        )
+    ]
+    selected = {0, len(image_paths) - 1}
+    for _score, left_idx, right_idx in sorted(transition_scores, reverse=True):
+        if len(selected) >= max_items:
+            break
+        selected.add(left_idx)
+        if len(selected) >= max_items:
+            break
+        selected.add(right_idx)
+    if len(selected) < max_items:
+        for idx in select_frame_indices(len(image_paths), max_items, "uniform"):
+            selected.add(idx)
+            if len(selected) >= max_items:
+                break
+    return sorted(selected)[:max_items]
+
+
+def select_frame_indices(
+    num_items: int,
+    max_items: int | None,
+    strategy: str,
+    image_paths: list[str] | None = None,
+) -> list[int]:
     if num_items <= 0:
         return []
     if max_items is None or max_items <= 0 or num_items <= max_items:
         return list(range(num_items))
+    if strategy == "high_motion":
+        if image_paths is None:
+            raise ValueError("high_motion frame selection requires image paths")
+        return high_motion_indices(image_paths, max_items)
     if max_items == 1:
         if strategy == "first":
             return [0]
@@ -185,7 +238,7 @@ def uniform_subsample(items: list[Any], max_items: int | None) -> list[Any]:
 
 
 def select_frames(items: list[Any], max_items: int | None, strategy: str) -> tuple[list[Any], list[int]]:
-    indices = select_frame_indices(len(items), max_items, strategy)
+    indices = select_frame_indices(len(items), max_items, strategy, image_paths=items if strategy == "high_motion" else None)
     return [items[index] for index in indices], indices
 
 
@@ -243,6 +296,11 @@ def compute_metrics(records: list[dict], target: str) -> dict:
         for r in records
         if isinstance(r.get("num_input_frames"), int) and r["num_input_frames"] >= 0
     ]
+    frame_selection_latencies_ms = [
+        float(r["frame_selection_latency_ms"])
+        for r in records
+        if isinstance(r.get("frame_selection_latency_ms"), int | float) and r["frame_selection_latency_ms"] >= 0
+    ]
     latency_summary = {}
     if latencies_ms:
         ordered = sorted(latencies_ms)
@@ -262,6 +320,16 @@ def compute_metrics(records: list[dict], target: str) -> dict:
             "num_input_frames_min": min(frame_counts),
             "num_input_frames_max": max(frame_counts),
         }
+    frame_selection_latency_summary = {}
+    if frame_selection_latencies_ms:
+        ordered = sorted(frame_selection_latencies_ms)
+        p90_idx = max(0, min(len(ordered) - 1, math.ceil(0.9 * len(ordered)) - 1))
+        frame_selection_latency_summary = {
+            "frame_selection_latency_median_ms": round(statistics.median(ordered), 2),
+            "frame_selection_latency_p90_ms": round(ordered[p90_idx], 2),
+            "frame_selection_latency_mean_ms": round(statistics.mean(ordered), 2),
+            "frame_selection_latency_max_ms": round(ordered[-1], 2),
+        }
     return {
         "target_dataset": target,
         "n_total": n_total,
@@ -275,6 +343,7 @@ def compute_metrics(records: list[dict], target: str) -> dict:
         "gold_distribution": dict(gold_distribution),
         **latency_summary,
         **frame_summary,
+        **frame_selection_latency_summary,
     }
 
 
@@ -322,7 +391,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--frame_selection",
-        choices=["uniform", "first", "last", "middle", "first_middle_last", "stride"],
+        choices=["uniform", "first", "last", "middle", "first_middle_last", "stride", "high_motion"],
         default="uniform",
         help="Frame selection strategy used with --max_input_frames.",
     )
@@ -384,7 +453,9 @@ def main() -> None:
             # label in metadata.behavior; fall back to row.answer just in case.
             if not isinstance(gold_label, str):
                 gold_label = row.get("answer", "")
+            selection_t0 = time.perf_counter()
             image_paths, frame_indices = select_frames(row["image_paths"], args.max_input_frames, args.frame_selection)
+            frame_selection_latency_ms = (time.perf_counter() - selection_t0) * 1000.0
             prompt = row["prompt"]
             latency_ms = None
             try:
@@ -421,6 +492,7 @@ def main() -> None:
                 "num_input_frames": len(image_paths),
                 "frame_selection": args.frame_selection,
                 "selected_frame_indices": frame_indices,
+                "frame_selection_latency_ms": round(frame_selection_latency_ms, 2),
             }
             handle.write(json.dumps(record, ensure_ascii=True) + "\n")
             handle.flush()

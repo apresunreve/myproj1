@@ -432,7 +432,12 @@
     `238.08 ms`, p90 `254.94 ms`
   - `stride`: accuracy `0.7300`, macro F1 `0.2462`, median `236.31 ms`,
     p90 `238.92 ms`
-- [ ] Implement simple high-motion frame selection.
+- [x] Implement simple high-motion frame selection.
+  - Strategy: grayscale thumbnail frame-difference score; keep endpoints and
+    fill remaining slots from the highest-motion adjacent transitions.
+  - Smoke result: accuracy `0.7100`, macro F1 `0.2388`, generation median
+    `235.83 ms`, generation p90 `240.38 ms`.
+  - Selection overhead: median `17.34 ms`, p90 `35.40 ms`, mean `35.15 ms`.
 - [ ] Implement redundancy filtering if useful.
 - [x] Compare frame policies at the same average frame count on a smoke subset.
 - [x] Run full-validation frame-policy comparison for the best smoke candidates
