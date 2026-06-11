@@ -88,7 +88,7 @@
 - [x] Add `src/kabr_vlm/efficiency/confidence.py`.
 - [x] Implement Qwen2.5-VL label scoring first.
 - [x] Score each closed-set behavior label directly.
-- [ ] Return:
+- [x] Return:
   - [x] `label_scores`
   - [x] top-1 label
   - [x] top-2 label
@@ -347,8 +347,11 @@
   - Confidence separation: first-token probability median `0.9855` for
     correct rows vs `0.6190` for incorrect rows; mean-token entropy median
     `0.0338` for correct rows vs `0.2668` for incorrect rows.
-- [ ] Replace the validation-set-tuned predicted-label proxy with a deployable
+- [x] Replace the validation-set-tuned predicted-label proxy with a deployable
   confidence gate.
+  - Evidence: full 4-frame MiniCPM generation-logit confidence, global entropy
+    gates, class-aware entropy gates, and deterministic held-out validation are
+    documented below.
 - [x] Run full MiniCPM `4`-frame generation-logit confidence on BaboonLand.
   - Output:
     `artifacts/full_eval/frame_subsample/minicpm_baboonland_4frames_genlogit_full.jsonl.metrics.json`
@@ -399,13 +402,13 @@
     gives macro F1 `0.4185`, fallback load `0.2090`, p90 `553.92 ms`.
   - Interpretation: confidence routing can recover held-out macro F1 only as a
     higher-load quality point, not as the low-p90 efficiency point.
-- [ ] Add fallback logic:
+- [x] Add fallback logic:
   - [x] run compressed frame pass
   - [x] compute deployable confidence
   - [x] accept if confidence is high
   - [x] rerun full 8-frame input when the proxy gate routes the row
 - [x] Sweep confidence thresholds.
-- [ ] Report:
+- [x] Report:
   - [x] accuracy
   - [x] macro F1
   - [x] median latency
