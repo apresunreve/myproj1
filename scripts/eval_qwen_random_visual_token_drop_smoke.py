@@ -65,6 +65,26 @@ def load_rows(path: Path, max_rows: int | None = None) -> list[dict[str, Any]]:
     return rows
 
 
+def load_balanced_rows(path: Path, samples_per_class: int, labels: list[str]) -> list[dict[str, Any]]:
+    buckets: dict[str, list[dict[str, Any]]] = {label: [] for label in labels}
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            label = row.get("answer") or row.get("metadata", {}).get("behavior")
+            if label in buckets and len(buckets[label]) < samples_per_class:
+                buckets[label].append(row)
+            if all(len(rows) >= samples_per_class for rows in buckets.values()):
+                break
+
+    selected: list[dict[str, Any]] = []
+    for label in labels:
+        selected.extend(buckets[label])
+    return selected
+
+
 def uniform_subsample(items: list[str], max_items: int | None) -> tuple[list[str], list[int]]:
     if max_items is None or max_items <= 0 or len(items) <= max_items:
         return list(items), list(range(len(items)))
@@ -292,6 +312,12 @@ def main() -> None:
     parser.add_argument("--model-id", default="Qwen/Qwen2.5-VL-3B-Instruct")
     parser.add_argument("--adapter-path", default=None)
     parser.add_argument("--max-rows", type=int, default=1)
+    parser.add_argument(
+        "--samples-per-class",
+        type=int,
+        default=0,
+        help="When >0, select this many BaboonLand rows per class instead of the first --max-rows rows.",
+    )
     parser.add_argument("--max-input-frames", type=int, default=4)
     parser.add_argument("--drop-fractions", default="0,0.25,0.5")
     parser.add_argument("--seed", type=int, default=17)
@@ -305,7 +331,10 @@ def main() -> None:
         generator = load_hf_pipeline(args.model_id)
     device = _model_device(generator.model)
     image_token_id = tokenizer_token_id(generator.processor, "<|image_pad|>")
-    rows = load_rows(Path(args.val_jsonl), args.max_rows)
+    if args.samples_per_class > 0:
+        rows = load_balanced_rows(Path(args.val_jsonl), args.samples_per_class, BABOONLAND_CLASSES)
+    else:
+        rows = load_rows(Path(args.val_jsonl), args.max_rows)
     drop_fractions = parse_drop_fractions(args.drop_fractions)
     output_path = Path(args.output_jsonl)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -364,4 +393,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
