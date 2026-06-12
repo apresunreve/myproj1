@@ -18,7 +18,9 @@ Update on 2026-06-12:
   - 1 row, 4 frames, 616 visual placeholder embeddings.
   - 0% dropout: parsed/correct, median latency 364.37 ms.
   - 50% dropout: zeroed 308 visual placeholder embeddings, parsed/correct, median latency 160.88 ms.
-  - This is a technical smoke only, not a quality or latency claim; run a larger balanced sample next.
+  - Balanced 13-row smoke, 1 row per BaboonLand class, 4 frames, drop fractions 0/0.25/0.5:
+    all settings had 2/13 correct with parsed rate 1.0. Prediction changes vs no-drop were 1/13 at 25% dropout and 4/13 at 50% dropout.
+  - This is a technical smoke only, not a quality or latency claim; run a larger balanced sample or a confidence-targeted hard-row sample next.
 
 ## Workspace and Git Hygiene
 

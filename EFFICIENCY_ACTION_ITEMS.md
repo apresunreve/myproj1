@@ -528,6 +528,13 @@
   - First BaboonLand B2 adapter smoke, 1 row, 4 frames: 0% and 50% visual
     embedding dropout both parsed and predicted correctly. The 50% condition
     zeroed 308 of 616 visual placeholder embeddings.
+  - Balanced 13-row BaboonLand B2 adapter smoke, 1 row/class, 4 frames,
+    drop fractions 0/0.25/0.5: all three settings had `2/13` correct and
+    parsed rate `1.0`. Prediction changes vs no-drop were `1/13` at 25%
+    dropout and `4/13` at 50% dropout.
+  - Balanced-smoke prediction distributions stayed concentrated in
+    `Walking/Running` and `Sitting/Standing`, so this is mainly a technical
+    perturbation check rather than a reliable quality estimate.
   - Treat this as a technical smoke only; it is not enough to claim quality
     robustness or latency improvement.
 - [ ] Test similarity-based visual-token merging if model internals permit.
