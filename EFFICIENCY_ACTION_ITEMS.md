@@ -566,6 +566,25 @@
     because sequence length is unchanged. It is still a useful positive signal:
     redundancy-aware merging is much less destructive than random or
     similarity-ranked zeroing and may even regularize this small sample.
+- [x] Prototype true shorter-prefix Qwen visual-token pruning.
+  - Script: `scripts/eval_qwen_visual_token_prune_smoke.py`
+  - Implementation builds Qwen multimodal embeddings, then removes selected
+    visual placeholder positions from `input_ids`, `attention_mask`, and
+    `inputs_embeds` before generation. This shortens the LLM prefix, though it
+    still pays the vision-tower cost before pruning.
+  - One-row BaboonLand B2 adapter smoke passed: 50% pruning reduced prompt
+    length from 720 to 412 tokens and kept the row correct.
+  - Balanced smoke, requested 5 rows/class and obtained 62 rows per setting:
+    no-prune accuracy `0.4032`, median latency `191.34 ms`, mean prompt
+    tokens `712.45`; random-prune 25% accuracy `0.4194`, median `152.79 ms`,
+    prompt tokens `560.32`; random-prune 50% accuracy `0.4032`, median
+    `148.20 ms`, prompt tokens `408.18`.
+  - Similarity-prune was worse: 25% accuracy `0.3710`, 50% accuracy `0.3226`.
+    It broke more no-prune correct rows than it fixed, especially at 50%.
+  - Interpretation: shorter-prefix pruning is technically viable and can lower
+    LLM-side latency, but deleting the most similar tokens is too destructive.
+    The best next direction is true shorter-prefix similarity-merge or
+    cluster-representative pruning, not high-similarity deletion.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6

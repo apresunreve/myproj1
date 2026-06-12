@@ -29,6 +29,11 @@ Update on 2026-06-12:
   - Balanced 62-row BaboonLand B2 smoke: no-drop accuracy 0.4032; random-zero 0.3710 at 25% and 0.3387 at 50%; similarity-zero 0.3871 at 25% and 0.3065 at 50%; similarity-merge 0.4194 at 25% and 0.4677 at 50%.
   - At 50%, similarity-merge changed 14/62 predictions, fixed 5 no-drop errors, and broke 1 no-drop correct row.
   - This is a positive signal for redundancy-aware consolidation, but it is not yet real latency compression because Qwen still processes the same sequence length.
+- Added `scripts/eval_qwen_visual_token_prune_smoke.py` for true shorter-prefix Qwen visual-token pruning.
+  - It builds multimodal embeddings, then removes selected visual placeholder positions from `input_ids`, `attention_mask`, and `inputs_embeds` before generation.
+  - One-row smoke passed: 50% pruning reduced the prompt from 720 to 412 tokens and preserved the correct prediction.
+  - Balanced 62-row smoke: no-prune accuracy 0.4032, median latency 191.34 ms, mean prompt tokens 712.45; random-prune 25% accuracy 0.4194, median 152.79 ms, prompt tokens 560.32; random-prune 50% accuracy 0.4032, median 148.20 ms, prompt tokens 408.18.
+  - Similarity-prune hurt quality: 0.3710 at 25% and 0.3226 at 50%. Deleting the most similar tokens is not the right policy; similarity-aware merge/replacement is a better direction.
 
 ## Workspace and Git Hygiene
 
@@ -78,6 +83,8 @@ Important scripts and modules now present:
   - Builds Qwen multimodal embeddings, zeros a random subset of visual placeholder embeddings, and generates through the model for a small baseline.
 - `scripts/eval_qwen_visual_token_consolidation_smoke.py`
   - Compares random visual zeroing against similarity-ranked zeroing and similarity-ranked merge/replacement.
+- `scripts/eval_qwen_visual_token_prune_smoke.py`
+  - Shortens Qwen's LLM prefix by removing selected visual placeholder embeddings after vision feature construction.
 - `scripts/eval_cross_dataset_vlm.py`
   - Supports fixed frame count via `--max_input_frames`.
   - Supports frame selection strategies: `uniform`, `first`, `last`, `middle`, `first_middle_last`, `stride`, `high_motion`, `low_redundancy`.
@@ -320,6 +327,7 @@ Near-term:
 - [x] Identify Qwen2.5-VL visual token spans.
 - [x] Add a random visual-token dropping baseline.
 - [x] Test similarity-based visual-token merging if model internals permit.
+- [x] Prototype true shorter-prefix visual-token pruning.
 - [ ] Convert similarity-aware embedding merge into a true shorter-sequence or lower-compute implementation.
 - [ ] Port stable visual-token hooks to LLaVA-OneVision.
 - [ ] Port stable visual-token hooks to MiniCPM-V 4.6.
