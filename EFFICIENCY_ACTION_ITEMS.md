@@ -509,9 +509,27 @@
 
 ## Visual-Token Consolidation
 
-- [ ] Count visual tokens per model/input.
-- [ ] Identify Qwen2.5-VL visual token spans.
-- [ ] Add random visual-token dropping baseline.
+- [x] Count visual tokens per model/input.
+  - Script: `scripts/inspect_qwen_visual_tokens.py`
+  - Qwen2.5-VL-3B processor-only BaboonLand smoke, first validation row:
+    2/4/8 selected frames expand to 308/616/1232 visual placeholder tokens.
+  - Per-frame expansion on this sample is 154 image placeholder tokens, with
+    `image_grid_thw=(1, 22, 28)` and a 2x2 merge from 616 vision-grid cells.
+- [x] Identify Qwen2.5-VL visual token spans.
+  - Qwen exposes `<|vision_start|>`, `<|vision_end|>`, `<|image_pad|>`,
+    and `<|video_pad|>` token IDs.
+  - For the first BaboonLand row at 2 frames, each image span is 156 prompt
+    tokens: start marker, 154 image placeholders, end marker.
+- [x] Add random visual-token dropping baseline.
+  - Script: `scripts/eval_qwen_random_visual_token_drop_smoke.py`
+  - Implementation keeps the prompt sequence intact and zeros a random subset
+    of visual placeholder embeddings after Qwen builds multimodal embeddings.
+    This avoids breaking Qwen's placeholder-count/visual-feature alignment.
+  - First BaboonLand B2 adapter smoke, 1 row, 4 frames: 0% and 50% visual
+    embedding dropout both parsed and predicted correctly. The 50% condition
+    zeroed 308 of 616 visual placeholder embeddings.
+  - Treat this as a technical smoke only; it is not enough to claim quality
+    robustness or latency improvement.
 - [ ] Test similarity-based visual-token merging if model internals permit.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision

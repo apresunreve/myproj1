@@ -4,6 +4,22 @@ Last updated: 2026-06-11
 
 This handoff is for future sessions continuing the VLM efficiency, routing, and frame-compression work. It summarizes the current repository state, decisions already made, key numerical results, and the next useful actions.
 
+Update on 2026-06-12:
+
+- Added `scripts/inspect_qwen_visual_tokens.py` for processor-only Qwen visual-token/span inspection.
+- Added `scripts/eval_qwen_random_visual_token_drop_smoke.py` for a Qwen random visual-token embedding dropout smoke baseline.
+- Qwen2.5-VL-3B BaboonLand processor-only smoke on the first validation row:
+  - 2 frames: 408 prompt tokens, 308 visual placeholder tokens.
+  - 4 frames: 720 prompt tokens, 616 visual placeholder tokens.
+  - 8 frames: 1344 prompt tokens, 1232 visual placeholder tokens.
+  - Per selected frame: 154 `<|image_pad|>` placeholders on this sample.
+  - Each image span is bounded by `<|vision_start|>` and `<|vision_end|>`.
+- Qwen2.5-VL-3B BaboonLand B2 adapter random visual-token dropout smoke:
+  - 1 row, 4 frames, 616 visual placeholder embeddings.
+  - 0% dropout: parsed/correct, median latency 364.37 ms.
+  - 50% dropout: zeroed 308 visual placeholder embeddings, parsed/correct, median latency 160.88 ms.
+  - This is a technical smoke only, not a quality or latency claim; run a larger balanced sample next.
+
 ## Workspace and Git Hygiene
 
 - Main execution workspace: `/scratch/general/vast/j.yan/myproj1`
@@ -46,6 +62,10 @@ At the last status check, no relevant background evaluation/training jobs were r
 
 Important scripts and modules now present:
 
+- `scripts/inspect_qwen_visual_tokens.py`
+  - Counts Qwen prompt tokens, visual placeholder tokens, image/video grid metadata, and visual marker spans without loading the full model by default.
+- `scripts/eval_qwen_random_visual_token_drop_smoke.py`
+  - Builds Qwen multimodal embeddings, zeros a random subset of visual placeholder embeddings, and generates through the model for a small baseline.
 - `scripts/eval_cross_dataset_vlm.py`
   - Supports fixed frame count via `--max_input_frames`.
   - Supports frame selection strategies: `uniform`, `first`, `last`, `middle`, `first_middle_last`, `stride`, `high_motion`, `low_redundancy`.
@@ -325,4 +345,3 @@ Start visual-token consolidation on Qwen2.5-VL:
 3. Use that output to decide whether random visual-token dropping can be implemented at the input/embedding boundary without breaking model internals.
 
 This is the best next step because frame-count compression is already near its practical limit for MiniCPM, and the current plan's remaining novelty is visual-token consolidation rather than additional global frame-selection heuristics.
-
