@@ -23,6 +23,12 @@ Update on 2026-06-12:
   - Larger balanced smoke requested 5 rows per class and produced 62 rows per drop setting:
     no-drop accuracy 0.4032, 25% dropout 0.3710, 50% dropout 0.3548, parsed rate 1.0 for all. Prediction changes vs no-drop were 7/62 at 25% and 10/62 at 50%; neither dropout setting corrected no-drop errors.
   - This is a technical smoke only, not a quality or latency claim. Naive random zeroing mostly hurts quality; the next useful step is similarity- or confidence-aware token consolidation, not random deletion.
+- Added `scripts/eval_qwen_visual_token_consolidation_smoke.py` for similarity-aware embedding-level token consolidation.
+  - The script compares `no_drop`, `random_zero`, `similarity_zero`, and `similarity_merge`.
+  - It ranks redundant visual placeholder embeddings by maximum cosine similarity to another visual token.
+  - Balanced 62-row BaboonLand B2 smoke: no-drop accuracy 0.4032; random-zero 0.3710 at 25% and 0.3387 at 50%; similarity-zero 0.3871 at 25% and 0.3065 at 50%; similarity-merge 0.4194 at 25% and 0.4677 at 50%.
+  - At 50%, similarity-merge changed 14/62 predictions, fixed 5 no-drop errors, and broke 1 no-drop correct row.
+  - This is a positive signal for redundancy-aware consolidation, but it is not yet real latency compression because Qwen still processes the same sequence length.
 
 ## Workspace and Git Hygiene
 
@@ -70,6 +76,8 @@ Important scripts and modules now present:
   - Counts Qwen prompt tokens, visual placeholder tokens, image/video grid metadata, and visual marker spans without loading the full model by default.
 - `scripts/eval_qwen_random_visual_token_drop_smoke.py`
   - Builds Qwen multimodal embeddings, zeros a random subset of visual placeholder embeddings, and generates through the model for a small baseline.
+- `scripts/eval_qwen_visual_token_consolidation_smoke.py`
+  - Compares random visual zeroing against similarity-ranked zeroing and similarity-ranked merge/replacement.
 - `scripts/eval_cross_dataset_vlm.py`
   - Supports fixed frame count via `--max_input_frames`.
   - Supports frame selection strategies: `uniform`, `first`, `last`, `middle`, `first_middle_last`, `stride`, `high_motion`, `low_redundancy`.
@@ -308,10 +316,11 @@ Interpretation: later frame drops reduce label-likelihood margin and increase en
 
 Near-term:
 
-- [ ] Count visual tokens per model/input.
-- [ ] Identify Qwen2.5-VL visual token spans.
-- [ ] Add a random visual-token dropping baseline.
-- [ ] Test similarity-based visual-token merging if model internals permit.
+- [x] Count visual tokens per model/input.
+- [x] Identify Qwen2.5-VL visual token spans.
+- [x] Add a random visual-token dropping baseline.
+- [x] Test similarity-based visual-token merging if model internals permit.
+- [ ] Convert similarity-aware embedding merge into a true shorter-sequence or lower-compute implementation.
 - [ ] Port stable visual-token hooks to LLaVA-OneVision.
 - [ ] Port stable visual-token hooks to MiniCPM-V 4.6.
 - [ ] Build a hard-row frame-occlusion set from threshold-near or 4-frame/8-frame-disagreement rows.

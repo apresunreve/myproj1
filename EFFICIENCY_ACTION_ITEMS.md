@@ -544,7 +544,28 @@
     errors in this sample.
   - Treat this as a technical smoke only; it is not enough to claim quality
     robustness or latency improvement.
-- [ ] Test similarity-based visual-token merging if model internals permit.
+- [x] Test similarity-based visual-token merging if model internals permit.
+  - Script: `scripts/eval_qwen_visual_token_consolidation_smoke.py`
+  - Compares `no_drop`, `random_zero`, `similarity_zero`, and
+    `similarity_merge` on the same selected rows.
+  - Implementation ranks visual placeholder embeddings by maximum cosine
+    similarity to another visual token. `similarity_zero` zeros the most
+    redundant embeddings; `similarity_merge` replaces them with the nearest
+    kept visual embedding.
+  - One-row BaboonLand B2 adapter smoke passed for all policies. The selected
+    redundant tokens had high max-cosine similarity (`~0.89-0.92`).
+  - Balanced smoke, requested 5 rows/class and obtained 62 rows per setting:
+    no-drop accuracy `0.4032`; random-zero `0.3710` at 25% and `0.3387` at
+    50%; similarity-zero `0.3871` at 25% and `0.3065` at 50%;
+    similarity-merge `0.4194` at 25% and `0.4677` at 50%.
+  - At 50%, `similarity_merge` changed `14/62` predictions, fixed 5 no-drop
+    errors, and broke 1 no-drop correct row. Fixed gold classes were
+    `Sitting/Standing`, `Grooming Somebody`, `Infant-Carrying` (2), and
+    `Drinking`; the broken row was `Foraging`.
+  - This is an embedding-level perturbation, not true latency compression,
+    because sequence length is unchanged. It is still a useful positive signal:
+    redundancy-aware merging is much less destructive than random or
+    similarity-ranked zeroing and may even regularize this small sample.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6
