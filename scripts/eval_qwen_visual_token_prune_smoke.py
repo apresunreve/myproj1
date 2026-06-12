@@ -38,7 +38,7 @@ from eval_qwen_random_visual_token_drop_smoke import (  # noqa: E402
 from eval_qwen_visual_token_consolidation_smoke import similarity_rank  # noqa: E402
 from kabr_vlm.vlm_baselines import _model_device, load_hf_adapter_generator, load_hf_pipeline  # noqa: E402
 
-SUPPORTED_POLICIES = {"no_prune", "random_prune", "similarity_prune"}
+SUPPORTED_POLICIES = {"no_prune", "random_prune", "similarity_prune", "similarity_merge_prune"}
 
 
 def parse_policies(value: str) -> list[str]:
@@ -78,7 +78,7 @@ def select_pruned_positions(
     if policy == "random_prune":
         local_indices = sorted(rng.sample(range(n_visual), n_prune))
         similarities: list[float] = []
-    elif policy == "similarity_prune":
+    elif policy in {"similarity_prune", "similarity_merge_prune"}:
         visual_embeds = inputs_embeds[0, positions]
         ranked, max_sim = similarity_rank(visual_embeds)
         local_indices = sorted(int(index.item()) for index in ranked[:n_prune])
@@ -94,6 +94,47 @@ def select_pruned_positions(
             round(statistics.mean(similarities), 6) if similarities else None
         ),
     }
+
+
+def merge_pruned_visual_embeddings(
+    *,
+    inputs_embeds,
+    input_ids,
+    image_token_id: int,
+    pruned_positions: list[int],
+):
+    import torch
+
+    if not pruned_positions:
+        return inputs_embeds
+
+    positions = visual_token_positions(input_ids, image_token_id)
+    position_to_local = {int(position.item()): local_idx for local_idx, position in enumerate(positions)}
+    selected_local = sorted(position_to_local[position] for position in pruned_positions)
+    selected_set = set(selected_local)
+    if len(selected_set) >= int(positions.numel()):
+        return inputs_embeds
+
+    visual_embeds = inputs_embeds[0, positions]
+    normalized = torch.nn.functional.normalize(visual_embeds.float(), dim=-1)
+    sims = normalized @ normalized.transpose(0, 1)
+    sims.fill_diagonal_(-float("inf"))
+
+    assignments: dict[int, list[int]] = {}
+    for local_idx in selected_local:
+        candidate_sims = sims[local_idx].clone()
+        for dropped_idx in selected_set:
+            candidate_sims[dropped_idx] = -float("inf")
+        nearest_idx = int(candidate_sims.argmax().item())
+        assignments.setdefault(nearest_idx, []).append(local_idx)
+
+    merged = inputs_embeds.clone()
+    for kept_idx, dropped_indices in assignments.items():
+        source_indices = [kept_idx, *dropped_indices]
+        merged_embed = visual_embeds[source_indices].float().mean(dim=0).to(merged.dtype)
+        kept_position = int(positions[kept_idx].item())
+        merged[0, kept_position] = merged_embed
+    return merged
 
 
 def prune_encoded_prefix(encoded: dict[str, Any], inputs_embeds, pruned_positions: list[int]):
@@ -207,7 +248,10 @@ def main() -> None:
     parser.add_argument("--samples-per-class", type=int, default=0)
     parser.add_argument("--max-input-frames", type=int, default=4)
     parser.add_argument("--prune-fractions", default="0.25,0.5")
-    parser.add_argument("--policies", default="no_prune,random_prune,similarity_prune")
+    parser.add_argument(
+        "--policies",
+        default="no_prune,random_prune,similarity_prune,similarity_merge_prune",
+    )
     parser.add_argument("--seed", type=int, default=29)
     parser.add_argument("--max-new-tokens", type=int, default=16)
     parser.add_argument("--output-jsonl", required=True)
@@ -259,9 +303,19 @@ def main() -> None:
                     prune_fraction=prune_fraction,
                     rng=rng,
                 )
+                policy_embeds = (
+                    merge_pruned_visual_embeddings(
+                        inputs_embeds=base_embeds,
+                        input_ids=encoded["input_ids"],
+                        image_token_id=image_token_id,
+                        pruned_positions=pruned_positions,
+                    )
+                    if policy == "similarity_merge_prune"
+                    else base_embeds
+                )
                 input_ids, attention_mask, inputs_embeds = prune_encoded_prefix(
                     encoded,
-                    base_embeds,
+                    policy_embeds,
                     pruned_positions,
                 )
                 generated = generate_from_pruned_prefix(
@@ -298,4 +352,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

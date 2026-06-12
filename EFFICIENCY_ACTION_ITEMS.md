@@ -581,10 +581,17 @@
     `148.20 ms`, prompt tokens `408.18`.
   - Similarity-prune was worse: 25% accuracy `0.3710`, 50% accuracy `0.3226`.
     It broke more no-prune correct rows than it fixed, especially at 50%.
+  - Added `similarity_merge_prune`, which merges each pruned high-similarity
+    visual embedding into its nearest kept neighbor before deleting it from
+    the prefix. This preserved the shorter sequence but did not recover the
+    embedding-level `similarity_merge` gain: 25% accuracy `0.3871`, 50%
+    accuracy `0.3387`. At 50%, it fixed 1 no-prune error but broke 5
+    no-prune correct rows.
   - Interpretation: shorter-prefix pruning is technically viable and can lower
-    LLM-side latency, but deleting the most similar tokens is too destructive.
-    The best next direction is true shorter-prefix similarity-merge or
-    cluster-representative pruning, not high-similarity deletion.
+    LLM-side latency, but removing the most similar tokens is too destructive
+    even when their information is averaged into kept neighbors. The best next
+    direction is cluster-representative pruning or confidence-gated random
+    pruning, not high-similarity deletion.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6

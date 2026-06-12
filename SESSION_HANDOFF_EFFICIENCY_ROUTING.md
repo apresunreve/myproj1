@@ -34,6 +34,7 @@ Update on 2026-06-12:
   - One-row smoke passed: 50% pruning reduced the prompt from 720 to 412 tokens and preserved the correct prediction.
   - Balanced 62-row smoke: no-prune accuracy 0.4032, median latency 191.34 ms, mean prompt tokens 712.45; random-prune 25% accuracy 0.4194, median 152.79 ms, prompt tokens 560.32; random-prune 50% accuracy 0.4032, median 148.20 ms, prompt tokens 408.18.
   - Similarity-prune hurt quality: 0.3710 at 25% and 0.3226 at 50%. Deleting the most similar tokens is not the right policy; similarity-aware merge/replacement is a better direction.
+  - Added true shorter-prefix `similarity_merge_prune`, which averages pruned high-similarity embeddings into nearest kept embeddings before deletion. It still hurt quality: 0.3871 at 25% and 0.3387 at 50%. Conclusion: embedding-level merge is a useful diagnostic, but shorter-prefix merge-prune needs cluster representatives or confidence gating rather than deleting the most similar tokens.
 
 ## Workspace and Git Hygiene
 
