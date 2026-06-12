@@ -20,7 +20,9 @@ Update on 2026-06-12:
   - 50% dropout: zeroed 308 visual placeholder embeddings, parsed/correct, median latency 160.88 ms.
   - Balanced 13-row smoke, 1 row per BaboonLand class, 4 frames, drop fractions 0/0.25/0.5:
     all settings had 2/13 correct with parsed rate 1.0. Prediction changes vs no-drop were 1/13 at 25% dropout and 4/13 at 50% dropout.
-  - This is a technical smoke only, not a quality or latency claim; run a larger balanced sample or a confidence-targeted hard-row sample next.
+  - Larger balanced smoke requested 5 rows per class and produced 62 rows per drop setting:
+    no-drop accuracy 0.4032, 25% dropout 0.3710, 50% dropout 0.3548, parsed rate 1.0 for all. Prediction changes vs no-drop were 7/62 at 25% and 10/62 at 50%; neither dropout setting corrected no-drop errors.
+  - This is a technical smoke only, not a quality or latency claim. Naive random zeroing mostly hurts quality; the next useful step is similarity- or confidence-aware token consolidation, not random deletion.
 
 ## Workspace and Git Hygiene
 

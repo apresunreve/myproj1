@@ -535,6 +535,13 @@
   - Balanced-smoke prediction distributions stayed concentrated in
     `Walking/Running` and `Sitting/Standing`, so this is mainly a technical
     perturbation check rather than a reliable quality estimate.
+  - Larger balanced smoke, requested 5 rows/class and obtained 62 rows per
+    drop setting: no-drop accuracy `0.4032`, 25% dropout `0.3710`, 50%
+    dropout `0.3548`, all with parsed rate `1.0`.
+  - Prediction changes vs no-drop: 25% dropout changed `7/62` predictions
+    and broke 2 previously correct rows; 50% dropout changed `10/62` and
+    broke 3 previously correct rows. Neither setting corrected any no-drop
+    errors in this sample.
   - Treat this as a technical smoke only; it is not enough to claim quality
     robustness or latency improvement.
 - [ ] Test similarity-based visual-token merging if model internals permit.
