@@ -1,8 +1,23 @@
 # Session Handoff: Efficiency and Routing Work
 
-Last updated: 2026-06-11
+Last updated: 2026-06-12
 
 This handoff is for future sessions continuing the VLM efficiency, routing, and frame-compression work. It summarizes the current repository state, decisions already made, key numerical results, and the next useful actions.
+
+## Current Snapshot
+
+- Strongest paper-ready efficiency contribution: **speculative visual inference / adaptive visual compute**.
+- Deployable policy direction: run a cheap compressed 4-frame visual pass first, estimate confidence from generation logits, and rerun with fuller visual input only for uncertain or class-sensitive cases.
+- Best mature result remains MiniCPM BaboonLand 4-frame to 8-frame confidence routing:
+  - 4-frame uniform nearly matches 8-frame quality at lower median latency.
+  - Class-aware entropy fallback routes about 7% of rows to 8 frames.
+  - Accuracy/macro F1 are comparable to full 8-frame while keeping p90 latency much lower than broad fallback policies.
+- Qwen visual-token work is now a useful extension track:
+  - Qwen2.5-VL expands 4 selected frames to about 616 visual placeholder tokens.
+  - True shorter-prefix pruning works technically and reduces LLM-side prompt length/latency.
+  - Blind or high-similarity deletion is not reliable enough yet; the next useful policy is cluster-representative or confidence-gated pruning.
+
+At the latest check, no relevant training/eval/Slurm jobs were running and the GPU was idle.
 
 Update on 2026-06-12:
 
@@ -44,14 +59,14 @@ Update on 2026-06-12:
 - Do not commit generated outputs, checkpoints, logs, Slurm stdout/stderr, virtualenvs, or large data files.
 - Current pushed branch: `origin/main`
 - Recent pushed commits:
-  - `f267b82 Record compressed frame policy decision`
-  - `7bafeab Add Qwen label-likelihood frame ablation smoke`
-  - `536a10e Add Qwen frame ablation smoke`
-  - `69d2507 Add Qwen frame confidence smoke`
-  - `9ed936e Analyze MiniCPM frame subset effects`
-  - `b405c2d Add low-redundancy frame selection smoke`
-  - `88e6db2 Update efficiency checklist status`
-  - `e676a81 Add high-motion frame selection smoke`
+  - `275f13c Test Qwen similarity merge pruning`
+  - `d53913e Add Qwen shorter-prefix token prune smoke`
+  - `352d91d Add Qwen similarity token consolidation smoke`
+  - `c1d03c7 Record larger Qwen token-drop smoke`
+  - `5581504 Record Qwen token-drop balanced smoke`
+  - `8b8342b Add balanced sampling to Qwen token-drop smoke`
+  - `3129bcb Add Qwen visual token inspection smokes`
+  - `b41d3bd Add efficiency session handoff`
 
 Useful checks:
 
@@ -360,10 +375,16 @@ Commit hygiene:
 
 ## Recommended Next Step
 
-Start visual-token consolidation on Qwen2.5-VL:
+Implement **cluster-representative shorter-prefix pruning** for Qwen2.5-VL:
 
-1. Add a small inspection script that runs a single Qwen sample and records tokenized input length, visual token locations/spans, number of image/video tokens, and generated latency.
-2. Run it on one KABR and one BaboonLand example with 2, 4, and 8 frames.
-3. Use that output to decide whether random visual-token dropping can be implemented at the input/embedding boundary without breaking model internals.
+1. Use the existing multimodal embeddings and visual placeholder positions from `scripts/eval_qwen_visual_token_prune_smoke.py`.
+2. Cluster visual embeddings within each clip, preferably per frame or with a temporal constraint so entire local regions are not erased.
+3. Keep representative tokens and merge dropped cluster members into those representatives.
+4. Prune the non-representative positions from `input_ids`, `attention_mask`, and `inputs_embeds` before generation.
+5. Compare against the existing baselines on the 62-row balanced BaboonLand B2 smoke:
+   - no-prune
+   - random-prune 25% and 50%
+   - similarity-prune 25% and 50%
+   - similarity-merge-prune 25% and 50%
 
-This is the best next step because frame-count compression is already near its practical limit for MiniCPM, and the current plan's remaining novelty is visual-token consolidation rather than additional global frame-selection heuristics.
+Why this is next: frame-count compression and confidence routing are already mature. Qwen visual-token pruning now has a working shorter-prefix path, but the selection policy is weak. Cluster representatives are the most direct next attempt at preserving information while reducing sequence length.
