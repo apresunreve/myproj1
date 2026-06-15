@@ -592,6 +592,30 @@
     even when their information is averaged into kept neighbors. The best next
     direction is cluster-representative pruning or confidence-gated random
     pruning, not high-similarity deletion.
+- [x] Add cluster-representative shorter-prefix Qwen visual-token pruning.
+  - Script: `scripts/eval_qwen_visual_token_prune_smoke.py`
+  - Policy: `cluster_merge_prune`.
+  - Implementation groups contiguous Qwen visual placeholder spans, keeps
+    k-center representatives within each span, averages dropped embeddings
+    into their nearest kept token, then removes the dropped positions from
+    `input_ids`, `attention_mask`, and `inputs_embeds`.
+  - One-row BaboonLand B2 adapter smoke passed: both 25% and 50% pruning
+    preserved the correct prediction. Prompt length dropped from `720` tokens
+    to `568` at 25% and `412` at 50%.
+  - Balanced smoke, requested 5 rows/class and obtained 62 rows:
+    no-prune accuracy `0.4194`, median latency `186.16 ms`, mean prompt
+    tokens `712.45`; cluster-merge-prune 25% accuracy `0.4355`, median
+    `186.19 ms`, prompt tokens `562.29`; cluster-merge-prune 50% accuracy
+    `0.4032`, median `185.70 ms`, prompt tokens `408.18`.
+  - At 25%, cluster-merge-prune changed 5/62 predictions, fixed 2 no-prune
+    errors (`Grooming Somebody`, `Drinking`), and broke 1 no-prune correct
+    row (`Foraging`). At 50%, it fixed 1 `Drinking` row but broke 2
+    `Foraging` rows.
+  - Interpretation: cluster-representative selection is less destructive than
+    high-similarity deletion and gives a small quality signal at 25%, but this
+    smoke did not show a median-latency gain despite shorter prompts. Next
+    step is confidence-gated pruning or a larger timed run that separates
+    vision-tower, prefix, and decode latency.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6

@@ -15,7 +15,7 @@ This handoff is for future sessions continuing the VLM efficiency, routing, and 
 - Qwen visual-token work is now a useful extension track:
   - Qwen2.5-VL expands 4 selected frames to about 616 visual placeholder tokens.
   - True shorter-prefix pruning works technically and reduces LLM-side prompt length/latency.
-  - Blind or high-similarity deletion is not reliable enough yet; the next useful policy is cluster-representative or confidence-gated pruning.
+  - Blind or high-similarity deletion is not reliable enough yet. Cluster-representative pruning is now implemented and has a modest 25% smoke signal, but confidence-gated pruning or larger timed runs are still needed.
 
 At the latest check, no relevant training/eval/Slurm jobs were running and the GPU was idle.
 
@@ -50,6 +50,12 @@ Update on 2026-06-12:
   - Balanced 62-row smoke: no-prune accuracy 0.4032, median latency 191.34 ms, mean prompt tokens 712.45; random-prune 25% accuracy 0.4194, median 152.79 ms, prompt tokens 560.32; random-prune 50% accuracy 0.4032, median 148.20 ms, prompt tokens 408.18.
   - Similarity-prune hurt quality: 0.3710 at 25% and 0.3226 at 50%. Deleting the most similar tokens is not the right policy; similarity-aware merge/replacement is a better direction.
   - Added true shorter-prefix `similarity_merge_prune`, which averages pruned high-similarity embeddings into nearest kept embeddings before deletion. It still hurt quality: 0.3871 at 25% and 0.3387 at 50%. Conclusion: embedding-level merge is a useful diagnostic, but shorter-prefix merge-prune needs cluster representatives or confidence gating rather than deleting the most similar tokens.
+- Added `cluster_merge_prune` to `scripts/eval_qwen_visual_token_prune_smoke.py`.
+  - It groups contiguous visual placeholder spans, keeps k-center representatives within each span, merges dropped embeddings into nearest kept representatives, and then removes dropped positions from the prefix.
+  - One-row BaboonLand B2 adapter smoke passed at 25% and 50%.
+  - Balanced 62-row smoke: no-prune accuracy 0.4194, median latency 186.16 ms, mean prompt tokens 712.45; cluster-merge-prune 25% accuracy 0.4355, median 186.19 ms, prompt tokens 562.29; cluster-merge-prune 50% accuracy 0.4032, median 185.70 ms, prompt tokens 408.18.
+  - At 25%, cluster-merge-prune changed 5/62 predictions, fixed 2 no-prune errors (`Grooming Somebody`, `Drinking`), and broke 1 no-prune correct row (`Foraging`). At 50%, it fixed 1 `Drinking` row and broke 2 `Foraging` rows.
+  - Interpretation: 25% cluster pruning is more promising than high-similarity deletion, but the current smoke did not show a median-latency gain despite shorter prompts. Treat it as a policy signal, not a finished efficiency result.
 
 ## Workspace and Git Hygiene
 
@@ -375,16 +381,11 @@ Commit hygiene:
 
 ## Recommended Next Step
 
-Implement **cluster-representative shorter-prefix pruning** for Qwen2.5-VL:
+Implement **confidence-gated Qwen visual-token pruning**:
 
-1. Use the existing multimodal embeddings and visual placeholder positions from `scripts/eval_qwen_visual_token_prune_smoke.py`.
-2. Cluster visual embeddings within each clip, preferably per frame or with a temporal constraint so entire local regions are not erased.
-3. Keep representative tokens and merge dropped cluster members into those representatives.
-4. Prune the non-representative positions from `input_ids`, `attention_mask`, and `inputs_embeds` before generation.
-5. Compare against the existing baselines on the 62-row balanced BaboonLand B2 smoke:
-   - no-prune
-   - random-prune 25% and 50%
-   - similarity-prune 25% and 50%
-   - similarity-merge-prune 25% and 50%
+1. Reuse `cluster_merge_prune` from `scripts/eval_qwen_visual_token_prune_smoke.py`.
+2. Run no-prune first, compute generation-logit confidence/entropy, and prune only rows that are high-confidence or not in known fragile classes such as `Foraging`.
+3. Compare against no-prune, random-prune, similarity-prune, similarity-merge-prune, and cluster-merge-prune on the same balanced BaboonLand B2 smoke.
+4. Add timing that separates vision feature construction, prefix pruning/merge, and generation latency so shorter-prompt benefits are measured directly.
 
-Why this is next: frame-count compression and confidence routing are already mature. Qwen visual-token pruning now has a working shorter-prefix path, but the selection policy is weak. Cluster representatives are the most direct next attempt at preserving information while reducing sequence length.
+Why this is next: cluster representatives preserve quality better than deleting the most similar tokens, but unconditional 50% pruning hurts `Foraging` and the current smoke does not show a clear median-latency gain. The next useful move is to route pruning only to rows where the model is already confident and to instrument timing more precisely.

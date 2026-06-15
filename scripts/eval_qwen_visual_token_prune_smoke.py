@@ -38,7 +38,13 @@ from eval_qwen_random_visual_token_drop_smoke import (  # noqa: E402
 from eval_qwen_visual_token_consolidation_smoke import similarity_rank  # noqa: E402
 from kabr_vlm.vlm_baselines import _model_device, load_hf_adapter_generator, load_hf_pipeline  # noqa: E402
 
-SUPPORTED_POLICIES = {"no_prune", "random_prune", "similarity_prune", "similarity_merge_prune"}
+SUPPORTED_POLICIES = {
+    "no_prune",
+    "random_prune",
+    "similarity_prune",
+    "similarity_merge_prune",
+    "cluster_merge_prune",
+}
 
 
 def parse_policies(value: str) -> list[str]:
@@ -55,6 +61,83 @@ def parse_policies(value: str) -> list[str]:
 
 def visual_token_positions(input_ids, image_token_id: int):
     return (input_ids[0] == image_token_id).nonzero(as_tuple=False).flatten()
+
+
+def contiguous_visual_runs(positions) -> list[list[int]]:
+    """Return local visual-token indices grouped by contiguous prompt spans."""
+
+    if int(positions.numel()) == 0:
+        return []
+    runs: list[list[int]] = []
+    current = [0]
+    for local_idx in range(1, int(positions.numel())):
+        prev_pos = int(positions[local_idx - 1].item())
+        this_pos = int(positions[local_idx].item())
+        if this_pos == prev_pos + 1:
+            current.append(local_idx)
+        else:
+            runs.append(current)
+            current = [local_idx]
+    runs.append(current)
+    return runs
+
+
+def k_center_representatives(visual_embeds, local_indices: list[int], keep_count: int) -> list[int]:
+    import torch
+
+    if keep_count >= len(local_indices):
+        return local_indices
+    if keep_count <= 0:
+        return []
+
+    local_tensor = torch.tensor(local_indices, dtype=torch.long, device=visual_embeds.device)
+    run_embeds = visual_embeds[local_tensor].float()
+    normalized = torch.nn.functional.normalize(run_embeds, dim=-1)
+    centroid = torch.nn.functional.normalize(normalized.mean(dim=0, keepdim=True), dim=-1)
+    first = int((normalized @ centroid.squeeze(0)).argmax().item())
+    selected = [first]
+    min_distance = 1.0 - (normalized @ normalized[first])
+
+    while len(selected) < keep_count:
+        next_local = int(min_distance.argmax().item())
+        if next_local in selected:
+            break
+        selected.append(next_local)
+        distance_to_next = 1.0 - (normalized @ normalized[next_local])
+        min_distance = torch.minimum(min_distance, distance_to_next)
+
+    return sorted(local_indices[index] for index in selected)
+
+
+def select_cluster_pruned_positions(
+    *,
+    inputs_embeds,
+    positions,
+    prune_fraction: float,
+) -> tuple[list[int], list[float]]:
+    import torch
+
+    visual_embeds = inputs_embeds[0, positions]
+    normalized = torch.nn.functional.normalize(visual_embeds.float(), dim=-1)
+    pruned_local: list[int] = []
+    kept_local: list[int] = []
+    for run in contiguous_visual_runs(positions):
+        n_prune = int(math.floor(len(run) * prune_fraction))
+        keep_count = len(run) - n_prune
+        run_kept = k_center_representatives(visual_embeds, run, keep_count)
+        run_kept_set = set(run_kept)
+        kept_local.extend(run_kept)
+        pruned_local.extend(index for index in run if index not in run_kept_set)
+
+    if not pruned_local or not kept_local:
+        return [], []
+
+    pruned_tensor = torch.tensor(pruned_local, dtype=torch.long, device=visual_embeds.device)
+    kept_tensor = torch.tensor(kept_local, dtype=torch.long, device=visual_embeds.device)
+    similarities = normalized[pruned_tensor] @ normalized[kept_tensor].transpose(0, 1)
+    max_similarities = similarities.max(dim=1).values.tolist()
+    pruned_positions = [int(positions[index].item()) for index in sorted(pruned_local)]
+    return pruned_positions, [float(value) for value in max_similarities]
 
 
 def select_pruned_positions(
@@ -83,6 +166,19 @@ def select_pruned_positions(
         ranked, max_sim = similarity_rank(visual_embeds)
         local_indices = sorted(int(index.item()) for index in ranked[:n_prune])
         similarities = [float(max_sim[index].item()) for index in local_indices]
+    elif policy == "cluster_merge_prune":
+        pruned_positions, similarities = select_cluster_pruned_positions(
+            inputs_embeds=inputs_embeds,
+            positions=positions,
+            prune_fraction=prune_fraction,
+        )
+        return pruned_positions, {
+            "num_visual_tokens": n_visual,
+            "num_pruned_visual_tokens": len(pruned_positions),
+            "mean_selected_max_similarity": (
+                round(statistics.mean(similarities), 6) if similarities else None
+            ),
+        }
     else:
         raise ValueError(f"Unsupported policy: {policy}")
 
@@ -310,7 +406,7 @@ def main() -> None:
                         image_token_id=image_token_id,
                         pruned_positions=pruned_positions,
                     )
-                    if policy == "similarity_merge_prune"
+                    if policy in {"similarity_merge_prune", "cluster_merge_prune"}
                     else base_embeds
                 )
                 input_ids, attention_mask, inputs_embeds = prune_encoded_prefix(
