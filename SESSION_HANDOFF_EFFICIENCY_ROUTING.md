@@ -1,6 +1,6 @@
 # Session Handoff: Efficiency and Routing Work
 
-Last updated: 2026-06-12
+Last updated: 2026-06-15
 
 This handoff is for future sessions continuing the VLM efficiency, routing, and frame-compression work. It summarizes the current repository state, decisions already made, key numerical results, and the next useful actions.
 
@@ -17,7 +17,21 @@ This handoff is for future sessions continuing the VLM efficiency, routing, and 
   - True shorter-prefix pruning works technically and reduces LLM-side prompt length/latency.
   - Blind or high-similarity deletion is not reliable enough yet. Cluster-representative pruning is now implemented and has a modest 25% smoke signal, but confidence-gated pruning or larger timed runs are still needed.
 
-At the latest check, no relevant training/eval/Slurm jobs were running and the GPU was idle.
+At the latest check on 2026-06-15, no relevant training/eval/Slurm jobs were running and the GPU was idle.
+
+## Fast Resume Summary
+
+- Current best mature story: MiniCPM speculative visual inference / adaptive visual compute.
+- Current experimental extension: Qwen2.5-VL visual-token pruning after vision-feature construction.
+- Latest promising Qwen smoke: entropy-gated 25% `cluster_merge_prune`, with `Foraging` excluded as fragile, on 62 balanced BaboonLand rows:
+  - baseline no-prune accuracy `0.4194`
+  - gated-prune accuracy `0.4516`
+  - pruned `47/62` rows
+  - fixed 2 no-prune errors
+  - broke 0 no-prune correct rows
+  - mean prompt length reduced from `712.45` to `597.23` tokens
+- Caution: this is not yet a latency claim. Median generation latency was effectively unchanged in the small unbatched smoke.
+- Immediate next work: run a larger stratified BaboonLand B2 validation, for example 20 rows/class, comparing no-prune, random-prune 25%, unconditional cluster-prune 25%, and entropy-gated cluster-prune 25%.
 
 Update on 2026-06-12:
 
@@ -71,6 +85,9 @@ Update on 2026-06-12:
 - Do not commit generated outputs, checkpoints, logs, Slurm stdout/stderr, virtualenvs, or large data files.
 - Current pushed branch: `origin/main`
 - Recent pushed commits:
+  - `4650bb5 Add confidence gated Qwen pruning analysis`
+  - `b705d1c Add Qwen cluster visual token pruning`
+  - `fd9de75 Refresh efficiency session handoff`
   - `275f13c Test Qwen similarity merge pruning`
   - `d53913e Add Qwen shorter-prefix token prune smoke`
   - `352d91d Add Qwen similarity token consolidation smoke`
@@ -93,6 +110,43 @@ nvidia-smi
 ```
 
 At the last status check, no relevant background evaluation/training jobs were running and the local GPU was idle.
+
+## Latest Artifacts
+
+- Confidence-enabled Qwen cluster-prune balanced smoke:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced65.jsonl`
+- Metrics for that smoke:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced65.jsonl.metrics.json`
+- Entropy-gated 25% cluster-prune sweep:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_entropy25.json`
+- First-token-probability gated 25% cluster-prune sweep:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_firstprob25.json`
+
+Useful command to rerun the larger next validation:
+
+```bash
+cd /scratch/general/vast/j.yan/myproj1_commit_tmp
+.venv/bin/python scripts/eval_qwen_visual_token_prune_smoke.py \
+  --val-jsonl /scratch/general/vast/j.yan/myproj1/data/processed/baboonland_behavior_val.jsonl \
+  --model-id Qwen/Qwen2.5-VL-3B-Instruct \
+  --adapter-path /scratch/general/vast/j.yan/myproj1/artifacts/runs/baboonland/qwen25vl3b_behavior_lora_b2_invsqrt/checkpoint \
+  --samples-per-class 20 \
+  --max-input-frames 4 \
+  --prune-fractions 0.25 \
+  --policies no_prune,random_prune,cluster_merge_prune \
+  --max-new-tokens 12 \
+  --output-jsonl /scratch/general/vast/j.yan/myproj1/artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced20pc.jsonl
+
+.venv/bin/python scripts/analyze_qwen_prune_gating.py \
+  --input-jsonl /scratch/general/vast/j.yan/myproj1/artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced20pc.jsonl \
+  --policy cluster_merge_prune \
+  --prune-fraction 0.25 \
+  --metric mean_token_entropy \
+  --direction le \
+  --quantiles 0.25,0.5,0.75 \
+  --fragile-labels Foraging \
+  --output-json /scratch/general/vast/j.yan/myproj1/artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_entropy25_balanced20pc.json
+```
 
 ## Main Documents
 
