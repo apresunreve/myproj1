@@ -616,6 +616,27 @@
     smoke did not show a median-latency gain despite shorter prompts. Next
     step is confidence-gated pruning or a larger timed run that separates
     vision-tower, prefix, and decode latency.
+- [x] Add confidence fields and a post-hoc gated-pruning analyzer.
+  - Scripts: `scripts/eval_qwen_visual_token_prune_smoke.py`,
+    `scripts/analyze_qwen_prune_gating.py`
+  - Pruning records now include generation-logit confidence summaries
+    (`mean_token_entropy`, `first_token_prob`, token logprobs/margins) and
+    stage timings for encoding, embedding construction, token selection,
+    merge, prune, and generation.
+  - Confidence-enabled balanced smoke reproduced the same quality pattern:
+    no-prune accuracy `0.4194`; cluster-merge-prune 25% accuracy `0.4355`;
+    cluster-merge-prune 50% accuracy `0.4032`.
+  - Entropy-gated 25% cluster pruning with `Foraging` treated as fragile:
+    threshold `0.3326`, pruned `47/62` rows, accuracy `0.4516`, fixed 2
+    no-prune errors, broke 0 no-prune correct rows, and reduced mean prompt
+    length to `597.23` tokens.
+  - First-token-probability gates at comparable quantiles pruned up to `45/62`
+    rows but did not change predictions or accuracy from no-prune.
+  - Interpretation: no-prune entropy is a better pruning gate than first-token
+    probability on this smoke subset. The next test should rerun the entropy
+    gate on a larger stratified sample and measure end-to-end latency with
+    batching or longer generations, where prompt shortening is more likely to
+    matter.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6

@@ -16,6 +16,7 @@ import math
 import random
 import statistics
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -255,7 +256,6 @@ def generate_from_pruned_prefix(
     inputs_embeds,
     max_new_tokens: int,
 ) -> dict[str, Any]:
-    import time
     import torch
 
     cuda_sync()
@@ -267,22 +267,78 @@ def generate_from_pruned_prefix(
             inputs_embeds=inputs_embeds,
             max_new_tokens=max_new_tokens,
             do_sample=False,
+            return_dict_in_generate=True,
+            output_scores=True,
         )
     cuda_sync()
     latency_ms = (time.perf_counter() - start) * 1000.0
     prompt_len = int(input_ids.shape[1])
-    completion = generated[:, prompt_len:] if generated.shape[1] > prompt_len else generated
+    sequences = generated.sequences
+    completion = sequences[:, prompt_len:] if sequences.shape[1] > prompt_len else sequences
     text = generator.processor.batch_decode(
         completion,
         skip_special_tokens=True,
         clean_up_tokenization_spaces=False,
     )[0].strip()
+    token_ids = [int(token_id) for token_id in completion[0].detach().cpu().tolist()]
     return {
         "generated_text": text,
         "latency_ms": latency_ms,
+        "generation_latency_ms": latency_ms,
         "completion_tokens": int(completion.shape[1]),
         "prompt_tokens_after_prune": prompt_len,
+        "token_ids": token_ids,
+        "confidence": summarize_token_scores(generator.processor, token_ids, generated.scores),
     }
+
+
+def summarize_token_scores(processor, token_ids: list[int], score_steps: tuple[Any, ...]) -> dict[str, float | int | None]:
+    import torch
+
+    tokenizer = getattr(processor, "tokenizer", None)
+    special_ids = set(getattr(tokenizer, "all_special_ids", []) or [])
+    token_probs: list[float] = []
+    token_logprobs: list[float] = []
+    token_logit_margins: list[float] = []
+    token_entropies: list[float] = []
+    first_token_prob: float | None = None
+    first_token_logit_margin: float | None = None
+
+    for index, token_id in enumerate(token_ids[: len(score_steps)]):
+        if token_id in special_ids:
+            continue
+        logits = score_steps[index][0].float()
+        log_probs = torch.log_softmax(logits, dim=-1)
+        probs = torch.exp(log_probs)
+        token_prob = float(probs[token_id].detach().cpu())
+        token_logprob = float(log_probs[token_id].detach().cpu())
+        top_values = torch.topk(logits, k=2).values
+        logit_margin = float((top_values[0] - top_values[1]).detach().cpu())
+        entropy = float((-(probs * log_probs).sum()).detach().cpu())
+        if first_token_prob is None:
+            first_token_prob = token_prob
+            first_token_logit_margin = logit_margin
+        token_probs.append(token_prob)
+        token_logprobs.append(token_logprob)
+        token_logit_margins.append(logit_margin)
+        token_entropies.append(entropy)
+
+    return {
+        "n_scored_tokens": len(token_probs),
+        "mean_token_prob": _mean(token_probs),
+        "min_token_prob": min(token_probs) if token_probs else None,
+        "mean_token_logprob": _mean(token_logprobs),
+        "sum_token_logprob": sum(token_logprobs) if token_logprobs else None,
+        "mean_token_logit_margin": _mean(token_logit_margins),
+        "min_token_logit_margin": min(token_logit_margins) if token_logit_margins else None,
+        "mean_token_entropy": _mean(token_entropies),
+        "first_token_prob": first_token_prob,
+        "first_token_logit_margin": first_token_logit_margin,
+    }
+
+
+def _mean(values: list[float]) -> float | None:
+    return sum(values) / len(values) if values else None
 
 
 def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -294,6 +350,7 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
     summary: dict[str, Any] = {"n_records": len(records), "by_policy_fraction": {}}
     for key, group in groups.items():
         latencies = [float(row["latency_ms"]) for row in group]
+        generation_latencies = [float(row["generation_latency_ms"]) for row in group if row.get("generation_latency_ms")]
         correct = sum(1 for row in group if row["correct"])
         parsed = sum(1 for row in group if row["pred_label"] is not None)
         changed = 0
@@ -320,6 +377,9 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
             "parsed_rate": parsed / len(group) if group else 0.0,
             "latency_median_ms": round(statistics.median(latencies), 2) if latencies else None,
             "latency_mean_ms": round(statistics.mean(latencies), 2) if latencies else None,
+            "generation_latency_median_ms": (
+                round(statistics.median(generation_latencies), 2) if generation_latencies else None
+            ),
             "prediction_changes_vs_no_prune": changed,
             "fixed_no_prune_errors": fixed,
             "broken_no_prune_correct": broken,
@@ -331,8 +391,19 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
                 statistics.mean(row["prompt_tokens_after_prune"] for row in group), 2
             ),
             "mean_selected_max_similarity": round(statistics.mean(similarities), 6) if similarities else None,
+            "confidence_mean_token_entropy_median": _median_confidence(group, "mean_token_entropy"),
+            "confidence_first_token_prob_median": _median_confidence(group, "first_token_prob"),
         }
     return summary
+
+
+def _median_confidence(group: list[dict[str, Any]], key: str) -> float | None:
+    values = [
+        float(row["confidence"][key])
+        for row in group
+        if row.get("confidence", {}).get(key) is not None
+    ]
+    return round(statistics.median(values), 6) if values else None
 
 
 def main() -> None:
@@ -372,13 +443,19 @@ def main() -> None:
     with output_path.open("w", encoding="utf-8") as handle:
         for row_index, row in enumerate(rows):
             image_paths, frame_indices = uniform_subsample(row["image_paths"], args.max_input_frames)
+            encode_start = time.perf_counter()
             encoded = encode_inputs(generator.processor, image_paths, row["prompt"])
             encoded = {
                 key: value.to(device) if hasattr(value, "to") else value
                 for key, value in encoded.items()
             }
             encoded.pop("mm_token_type_ids", None)
+            cuda_sync()
+            encode_latency_ms = (time.perf_counter() - encode_start) * 1000.0
+            embed_start = time.perf_counter()
             base_embeds = build_multimodal_inputs_embeds(generator.model, encoded)
+            cuda_sync()
+            embed_latency_ms = (time.perf_counter() - embed_start) * 1000.0
             gold_label = row.get("answer") or row.get("metadata", {}).get("behavior")
             work_items: list[tuple[str, float]] = [("no_prune", 0.0)]
             work_items.extend(
@@ -391,6 +468,7 @@ def main() -> None:
                 rng = random.Random(
                     args.seed + row_index * 1009 + int(prune_fraction * 10000) + sum(ord(c) for c in policy)
                 )
+                select_start = time.perf_counter()
                 pruned_positions, policy_stats = select_pruned_positions(
                     inputs_embeds=base_embeds,
                     input_ids=encoded["input_ids"],
@@ -399,6 +477,9 @@ def main() -> None:
                     prune_fraction=prune_fraction,
                     rng=rng,
                 )
+                cuda_sync()
+                selection_latency_ms = (time.perf_counter() - select_start) * 1000.0
+                merge_start = time.perf_counter()
                 policy_embeds = (
                     merge_pruned_visual_embeddings(
                         inputs_embeds=base_embeds,
@@ -409,11 +490,16 @@ def main() -> None:
                     if policy in {"similarity_merge_prune", "cluster_merge_prune"}
                     else base_embeds
                 )
+                cuda_sync()
+                merge_latency_ms = (time.perf_counter() - merge_start) * 1000.0
+                prune_start = time.perf_counter()
                 input_ids, attention_mask, inputs_embeds = prune_encoded_prefix(
                     encoded,
                     policy_embeds,
                     pruned_positions,
                 )
+                cuda_sync()
+                prune_latency_ms = (time.perf_counter() - prune_start) * 1000.0
                 generated = generate_from_pruned_prefix(
                     generator=generator,
                     input_ids=input_ids,
@@ -431,6 +517,11 @@ def main() -> None:
                     "prune_fraction": prune_fraction,
                     "selected_frame_indices": frame_indices,
                     "pruned_visual_positions": pruned_positions,
+                    "encode_latency_ms": encode_latency_ms,
+                    "embed_latency_ms": embed_latency_ms,
+                    "selection_latency_ms": selection_latency_ms,
+                    "merge_latency_ms": merge_latency_ms,
+                    "prune_latency_ms": prune_latency_ms,
                     **policy_stats,
                     **generated,
                 }

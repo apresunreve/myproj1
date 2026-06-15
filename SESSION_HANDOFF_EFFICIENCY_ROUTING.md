@@ -56,6 +56,12 @@ Update on 2026-06-12:
   - Balanced 62-row smoke: no-prune accuracy 0.4194, median latency 186.16 ms, mean prompt tokens 712.45; cluster-merge-prune 25% accuracy 0.4355, median 186.19 ms, prompt tokens 562.29; cluster-merge-prune 50% accuracy 0.4032, median 185.70 ms, prompt tokens 408.18.
   - At 25%, cluster-merge-prune changed 5/62 predictions, fixed 2 no-prune errors (`Grooming Somebody`, `Drinking`), and broke 1 no-prune correct row (`Foraging`). At 50%, it fixed 1 `Drinking` row and broke 2 `Foraging` rows.
   - Interpretation: 25% cluster pruning is more promising than high-similarity deletion, but the current smoke did not show a median-latency gain despite shorter prompts. Treat it as a policy signal, not a finished efficiency result.
+- Added confidence/timing fields to `scripts/eval_qwen_visual_token_prune_smoke.py` and added `scripts/analyze_qwen_prune_gating.py`.
+  - Each pruning record now includes generation-logit confidence summaries and stage timings for encoding, embedding, selection, merge, prune, and generation.
+  - Confidence-enabled balanced 62-row smoke reproduced the unconditional pruning pattern: no-prune accuracy 0.4194; cluster-merge-prune 25% accuracy 0.4355; cluster-merge-prune 50% accuracy 0.4032.
+  - Post-hoc entropy-gated 25% cluster pruning with `Foraging` excluded as a fragile predicted class pruned 47/62 rows, reached accuracy 0.4516, fixed 2 no-prune errors, broke 0 no-prune correct rows, and reduced mean prompt length to 597.23 tokens.
+  - First-token-probability gates pruned up to 45/62 rows but did not change predictions or accuracy from no-prune on this subset.
+  - Interpretation: entropy is the better pruning gate in this smoke. This is still not a final latency claim because median generation latency was effectively unchanged in the small unbatched run.
 
 ## Workspace and Git Hygiene
 
@@ -381,11 +387,12 @@ Commit hygiene:
 
 ## Recommended Next Step
 
-Implement **confidence-gated Qwen visual-token pruning**:
+Run a **larger entropy-gated Qwen visual-token pruning validation**:
 
-1. Reuse `cluster_merge_prune` from `scripts/eval_qwen_visual_token_prune_smoke.py`.
-2. Run no-prune first, compute generation-logit confidence/entropy, and prune only rows that are high-confidence or not in known fragile classes such as `Foraging`.
-3. Compare against no-prune, random-prune, similarity-prune, similarity-merge-prune, and cluster-merge-prune on the same balanced BaboonLand B2 smoke.
-4. Add timing that separates vision feature construction, prefix pruning/merge, and generation latency so shorter-prompt benefits are measured directly.
+1. Reuse the confidence-enabled records from `scripts/eval_qwen_visual_token_prune_smoke.py` and the sweep logic in `scripts/analyze_qwen_prune_gating.py`.
+2. Run a larger stratified BaboonLand B2 sample, for example 20 rows/class if GPU time permits.
+3. Test 25% `cluster_merge_prune` with no-prune `mean_token_entropy` gating and fragile predicted labels including at least `Foraging`.
+4. Compare no-prune, unconditional 25% cluster pruning, entropy-gated 25% cluster pruning, and random-prune 25%.
+5. Report accuracy, fixed/broken counts, prompt-token reduction, and timing broken down into vision/embedding versus generation.
 
-Why this is next: cluster representatives preserve quality better than deleting the most similar tokens, but unconditional 50% pruning hurts `Foraging` and the current smoke does not show a clear median-latency gain. The next useful move is to route pruning only to rows where the model is already confident and to instrument timing more precisely.
+Why this is next: entropy-gated cluster pruning improved the 62-row smoke while avoiding the observed `Foraging` breakage, but the sample is small and unbatched latency did not improve. A larger stratified validation is needed before treating this as a real efficiency result.
