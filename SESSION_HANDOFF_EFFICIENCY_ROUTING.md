@@ -4,6 +4,19 @@ Last updated: 2026-06-15
 
 This handoff is for future sessions continuing the VLM efficiency, routing, and frame-compression work. It summarizes the current repository state, decisions already made, key numerical results, and the next useful actions.
 
+## Paper Big Picture
+
+This project is about efficient vision-language modeling for wildlife behavior recognition. Modern VLMs can recognize animal behavior from ecological video frames, but full multimodal inference is expensive and often unnecessary. The paper adapts VLMs with LoRA on KABR and BaboonLand, then studies how to allocate visual compute only where it matters. The central idea is **speculative visual inference / adaptive visual compute**: run a cheap compressed visual pass first, estimate confidence from normal generation logits, and use additional visual evidence only for uncertain or class-sensitive examples. This is similar in spirit to speculative decoding, but the speculation is over visual evidence rather than text-token drafts.
+
+Main contribution framing:
+
+- LoRA adaptation and evaluation of multimodal foundation models for wildlife behavior recognition on KABR, BaboonLand, and joint settings.
+- A compressed-frame inference study showing that 4 uniformly sampled frames can preserve most of the quality of 8-frame inference while reducing latency.
+- A lightweight confidence signal from generation logits, avoiding expensive label-likelihood scoring for deployment-time routing.
+- A class-aware adaptive fallback policy that routes only selected uncertain or fragile predictions to fuller visual input.
+- A latency-quality evaluation protocol reporting accuracy, macro F1, fallback load, median/p90 latency, bootstrap uncertainty, and class-level behavior.
+- An exploratory Qwen2.5-VL visual-token pruning track that tests whether adaptive visual compute can move inside the VLM prefix itself.
+
 ## Current Snapshot
 
 - Strongest paper-ready efficiency contribution: **speculative visual inference / adaptive visual compute**.
