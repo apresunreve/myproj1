@@ -36,15 +36,16 @@ At the latest check on 2026-06-15, no relevant training/eval/Slurm jobs were run
 
 - Current best mature story: MiniCPM speculative visual inference / adaptive visual compute.
 - Current experimental extension: Qwen2.5-VL visual-token pruning after vision-feature construction.
-- Latest promising Qwen smoke: entropy-gated 25% `cluster_merge_prune`, with `Foraging` excluded as fragile, on 62 balanced BaboonLand rows:
-  - baseline no-prune accuracy `0.4194`
-  - gated-prune accuracy `0.4516`
-  - pruned `47/62` rows
-  - fixed 2 no-prune errors
+- Latest promising Qwen smoke: entropy-gated 25% `cluster_merge_prune`, with `Foraging` excluded as fragile, on 242 stratified BaboonLand rows:
+  - larger-run baseline no-prune accuracy `0.4421`
+  - larger-run gated-prune accuracy `0.4628`
+  - pruned `182/242` rows
+  - fixed 5 no-prune errors
   - broke 0 no-prune correct rows
-  - mean prompt length reduced from `712.45` to `597.23` tokens
-- Caution: this is not yet a latency claim. Median generation latency was effectively unchanged in the small unbatched smoke.
-- Immediate next work: run a larger stratified BaboonLand B2 validation, for example 20 rows/class, comparing no-prune, random-prune 25%, unconditional cluster-prune 25%, and entropy-gated cluster-prune 25%.
+  - mean prompt length reduced from `716.13` to `602.29` tokens
+  - median generation latency reduced from `271.43 ms` to `244.68 ms`
+- Caution: this is still not a full-validation claim, but the larger stratified smoke confirms the direction beyond the initial 62-row check.
+- Immediate next work: bootstrap or rerun the entropy-gated cluster-prune policy on a larger held-out/full validation subset, then decide whether to present Qwen visual-token pruning as an exploratory extension or a secondary contribution.
 
 Update on 2026-06-12:
 
@@ -89,6 +90,14 @@ Update on 2026-06-12:
   - Post-hoc entropy-gated 25% cluster pruning with `Foraging` excluded as a fragile predicted class pruned 47/62 rows, reached accuracy 0.4516, fixed 2 no-prune errors, broke 0 no-prune correct rows, and reduced mean prompt length to 597.23 tokens.
   - First-token-probability gates pruned up to 45/62 rows but did not change predictions or accuracy from no-prune on this subset.
   - Interpretation: entropy is the better pruning gate in this smoke. This is still not a final latency claim because median generation latency was effectively unchanged in the small unbatched run.
+- Ran a larger stratified Qwen visual-token pruning validation.
+  - Output: `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced20pc.jsonl`
+  - Sample: requested 20 rows/class and obtained 242 BaboonLand rows, with 726 generated records across no-prune, random-prune 25%, and cluster-merge-prune 25%.
+  - No-prune: accuracy 0.4421, median generation latency 271.43 ms, mean prompt tokens 716.13.
+  - Random-prune 25%: accuracy 0.4174, median generation latency 243.96 ms, mean prompt tokens 563.09; fixed 8 no-prune errors but broke 14 correct rows.
+  - Cluster-merge-prune 25%: accuracy 0.4587, median generation latency 244.60 ms, mean prompt tokens 565.07; fixed 9 no-prune errors and broke 5 correct rows.
+  - Entropy-gated cluster-merge-prune 25%, excluding no-prune `Foraging` predictions as fragile: threshold 0.3235, pruned 182/242 rows, accuracy 0.4628, median generation latency 244.68 ms, mean prompt tokens 602.29; fixed 5 no-prune errors and broke 0 correct rows.
+  - Interpretation: the larger smoke confirms that cluster-representative pruning beats random pruning and that entropy gating removes the observed breakages. This is the strongest Qwen visual-token result so far.
 
 ## Workspace and Git Hygiene
 
@@ -128,6 +137,14 @@ At the last status check, no relevant background evaluation/training jobs were r
 
 - Confidence-enabled Qwen cluster-prune balanced smoke:
   `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced65.jsonl`
+- Larger stratified Qwen cluster-prune validation:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced20pc.jsonl`
+- Larger stratified Qwen cluster-prune metrics:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced20pc.jsonl.metrics.json`
+- Larger entropy-gated 25% cluster-prune sweep:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_entropy25_balanced20pc.json`
+- Larger first-token-probability gated 25% cluster-prune sweep:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_firstprob25_balanced20pc.json`
 - Metrics for that smoke:
   `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced65.jsonl.metrics.json`
 - Entropy-gated 25% cluster-prune sweep:
@@ -135,7 +152,7 @@ At the last status check, no relevant background evaluation/training jobs were r
 - First-token-probability gated 25% cluster-prune sweep:
   `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_firstprob25.json`
 
-Useful command to rerun the larger next validation:
+Useful command to rerun the larger validation:
 
 ```bash
 cd /scratch/general/vast/j.yan/myproj1_commit_tmp
@@ -454,12 +471,12 @@ Commit hygiene:
 
 ## Recommended Next Step
 
-Run a **larger entropy-gated Qwen visual-token pruning validation**:
+Run a **stronger validation of entropy-gated Qwen visual-token pruning**:
 
-1. Reuse the confidence-enabled records from `scripts/eval_qwen_visual_token_prune_smoke.py` and the sweep logic in `scripts/analyze_qwen_prune_gating.py`.
-2. Run a larger stratified BaboonLand B2 sample, for example 20 rows/class if GPU time permits.
-3. Test 25% `cluster_merge_prune` with no-prune `mean_token_entropy` gating and fragile predicted labels including at least `Foraging`.
-4. Compare no-prune, unconditional 25% cluster pruning, entropy-gated 25% cluster pruning, and random-prune 25%.
-5. Report accuracy, fixed/broken counts, prompt-token reduction, and timing broken down into vision/embedding versus generation.
+1. Use the 242-row result as the current positive smoke.
+2. Either bootstrap the 242-row stratified sample by clip/group ID or run a larger/full BaboonLand B2 validation if GPU time permits.
+3. Keep the main comparison: no-prune, random-prune 25%, unconditional cluster-merge-prune 25%, entropy-gated cluster-merge-prune 25%.
+4. Report uncertainty around accuracy, fixed/broken counts, prompt-token reduction, and generation latency.
+5. Decide whether Qwen token pruning should be presented as an exploratory extension or a secondary contribution alongside the mature MiniCPM adaptive visual-compute result.
 
-Why this is next: entropy-gated cluster pruning improved the 62-row smoke while avoiding the observed `Foraging` breakage, but the sample is small and unbatched latency did not improve. A larger stratified validation is needed before treating this as a real efficiency result.
+Why this is next: the larger stratified smoke now supports the policy direction, but a paper claim needs uncertainty estimates or a broader validation set.

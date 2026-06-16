@@ -637,6 +637,30 @@
     gate on a larger stratified sample and measure end-to-end latency with
     batching or longer generations, where prompt shortening is more likely to
     matter.
+- [x] Run larger stratified Qwen visual-token pruning validation.
+  - Output:
+    `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced20pc.jsonl`
+  - Sample: requested 20 rows/class and obtained 242 BaboonLand rows, with
+    three settings per row (`726` records total).
+  - No-prune: accuracy `0.4421`, median generation latency `271.43 ms`, mean
+    prompt tokens `716.13`.
+  - Random-prune 25%: accuracy `0.4174`, median generation latency
+    `243.96 ms`, mean prompt tokens `563.09`; changed 30 predictions, fixed 8
+    no-prune errors, and broke 14 no-prune correct rows.
+  - Cluster-merge-prune 25%: accuracy `0.4587`, median generation latency
+    `244.60 ms`, mean prompt tokens `565.07`; changed 17 predictions, fixed 9
+    no-prune errors, and broke 5 no-prune correct rows.
+  - Entropy-gated cluster-merge-prune 25%, excluding no-prune `Foraging`
+    predictions as fragile: threshold `0.3235`, pruned `182/242` rows,
+    accuracy `0.4628`, median generation latency `244.68 ms`, mean prompt
+    tokens `602.29`; fixed 5 no-prune errors and broke 0 no-prune correct
+    rows.
+  - Fixed labels under the entropy gate: `Being Groomed` (1),
+    `Grooming Somebody` (2), `Mutual Grooming` (1), and `Drinking` (1).
+  - Interpretation: the larger smoke confirms that cluster-representative
+    pruning is better than random pruning and that entropy gating preserves
+    the useful fixes while avoiding observed breakages. This is now a stronger
+    extension result, though it is still smaller than a full-validation claim.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6
