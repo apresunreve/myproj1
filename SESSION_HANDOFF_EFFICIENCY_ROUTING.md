@@ -36,17 +36,12 @@ At the latest check on 2026-06-15, no relevant training/eval/Slurm jobs were run
 
 - Current best mature story: MiniCPM speculative visual inference / adaptive visual compute.
 - Current experimental extension: Qwen2.5-VL visual-token pruning after vision-feature construction.
-- Latest promising Qwen smoke: entropy-gated 25% `cluster_merge_prune`, with `Foraging` excluded as fragile, on 242 stratified BaboonLand rows:
-  - larger-run baseline no-prune accuracy `0.4421`
-  - larger-run gated-prune accuracy `0.4628`
-  - pruned `182/242` rows
-  - fixed 5 no-prune errors
-  - broke 0 no-prune correct rows
-  - mean prompt length reduced from `716.13` to `602.29` tokens
-  - median generation latency reduced from `271.43 ms` to `244.68 ms`
-  - paired bootstrap accuracy gain over no-prune: mean `+0.0205`, CI `+0.0041..+0.0381`, `P(diff>0)=0.9925`
-- Caution: this is still not a full-validation claim, but the larger stratified smoke plus bootstrap supports reporting Qwen visual-token pruning as an exploratory extension.
-- Immediate next work: either run a larger/full BaboonLand B2 validation if GPU time permits, or write the paper framing with MiniCPM adaptive visual compute as the main contribution and Qwen entropy-gated token pruning as a secondary/exploratory extension.
+- Latest Qwen visual-token pruning status:
+  - 242-row stratified smoke: entropy-gated 25% `cluster_merge_prune` improved accuracy over no-prune by mean `+0.0205`, CI `+0.0041..+0.0381`.
+  - 573-row broader stratified smoke: cluster-merge-prune 25% improved macro F1 over no-prune by mean `+0.0164`, CI `-0.0025..+0.0380`, and reduced median generation latency by about `27 ms`; the quality CI crosses zero.
+  - 573-row cluster-merge-prune 25% clearly beats random-prune 25%: accuracy diff mean `+0.0299`, CI `+0.0103..+0.0508`; macro-F1 diff mean `+0.0340`, CI `+0.0117..+0.0578`.
+- Caution: Qwen token pruning is now a solid exploratory extension, especially versus random pruning, but not a full-validation main claim.
+- Immediate next work: either run a full BaboonLand B2 Qwen validation if GPU time permits, or consolidate the paper with MiniCPM adaptive visual compute as the main contribution and Qwen token pruning as a secondary/exploratory extension.
 
 Update on 2026-06-12:
 
@@ -109,6 +104,20 @@ Update on 2026-06-12:
   - Paired entropy-gated minus no-prune prompt-token diff: mean -113.83 tokens, CI -122.82..-104.46.
   - Paired cluster-merge-prune 25% minus random-prune 25% accuracy diff: mean +0.0417, CI +0.0122..+0.0756, P(diff>0)=0.9940.
   - Interpretation: the uncertainty analysis supports the qualitative claim that entropy-gated cluster pruning improves this stratified Qwen sample while reducing prompt length and generation latency. Treat as an exploratory extension unless a full-validation run is added.
+- Ran a broader 50-per-class Qwen visual-token pruning validation.
+  - Output: `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced50pc.jsonl`
+  - Sample: requested 50 rows/class and obtained 573 BaboonLand rows, with 1719 generated records.
+  - No-prune: accuracy 0.4119, macro F1 0.3328, median generation latency 267.54 ms, mean prompt tokens 717.55.
+  - Random-prune 25%: accuracy 0.3892, macro F1 0.3154, median generation latency 239.98 ms, mean prompt tokens 564.16; fixed 10 no-prune errors and broke 23 correct rows.
+  - Cluster-merge-prune 25%: accuracy 0.4188, macro F1 0.3492, median generation latency 240.36 ms, mean prompt tokens 566.15; fixed 16 no-prune errors and broke 12 correct rows.
+  - Entropy-gated cluster-prune 25%: threshold 0.3192, pruned 430/573 rows, accuracy 0.4154, macro F1 0.3419, median generation latency 240.48 ms, mean prompt tokens 603.88; fixed 8 no-prune errors and broke 6 correct rows.
+- Bootstrapped the 50-per-class Qwen visual-token pruning validation.
+  - Output: `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_policy_bootstrap_balanced50pc.json`
+  - Grouping: ID prefix before first colon; 549 groups, 2000 bootstrap samples.
+  - Cluster-merge-prune 25% minus no-prune: accuracy diff mean +0.0069, CI -0.0121..+0.0247; macro-F1 diff mean +0.0164, CI -0.0025..+0.0380; median generation-latency diff mean -27.16 ms, CI -27.37..-26.91.
+  - Entropy-gated cluster-prune 25% minus no-prune: accuracy diff mean +0.0035, CI -0.0088..+0.0159; macro-F1 diff mean +0.0092, CI -0.0043..+0.0238; median generation-latency diff mean -27.00 ms, CI -27.29..-26.61.
+  - Cluster-merge-prune 25% minus random-prune 25%: accuracy diff mean +0.0299, CI +0.0103..+0.0508; macro-F1 diff mean +0.0340, CI +0.0117..+0.0578.
+  - Interpretation: the broader validation confirms cluster-representative pruning is better than random pruning and consistently reduces generation latency/prompt length versus no-prune. Quality versus no-prune trends positive but is not decisive, so this remains a secondary/exploratory contribution.
 
 ## Workspace and Git Hygiene
 
@@ -158,6 +167,16 @@ At the last status check, no relevant background evaluation/training jobs were r
   `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_firstprob25_balanced20pc.json`
 - Larger Qwen pruning policy bootstrap:
   `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_policy_bootstrap_balanced20pc.json`
+- 50-per-class Qwen cluster-prune validation:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced50pc.jsonl`
+- 50-per-class Qwen cluster-prune metrics:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced50pc.jsonl.metrics.json`
+- 50-per-class entropy-gated cluster-prune sweep:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_entropy25_balanced50pc.json`
+- 50-per-class first-token-probability gated cluster-prune sweep:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_firstprob25_balanced50pc.json`
+- 50-per-class Qwen pruning policy bootstrap:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_policy_bootstrap_balanced50pc.json`
 - Metrics for that smoke:
   `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced65.jsonl.metrics.json`
 - Entropy-gated 25% cluster-prune sweep:
@@ -486,8 +505,8 @@ Commit hygiene:
 
 Choose between **fuller Qwen validation** and **paper write-up consolidation**:
 
-1. If GPU time is available, run a broader/full BaboonLand B2 validation for the entropy-gated cluster-prune policy.
-2. If not, treat the 242-row bootstrapped result as an exploratory extension and move to paper organization.
+1. If GPU time is available, run a full BaboonLand B2 validation for the cluster-prune policy.
+2. If not, treat the 573-row bootstrapped result as an exploratory extension and move to paper organization.
 3. Keep the main paper contribution centered on MiniCPM adaptive visual compute/speculative visual inference.
 4. Present Qwen visual-token pruning as evidence that the same adaptive-compute principle may also apply inside the VLM visual-token prefix.
 5. Avoid overstating the Qwen result as full-validation proof unless the broader run is completed.

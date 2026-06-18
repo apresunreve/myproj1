@@ -683,6 +683,46 @@
     latency/prompt-length reduction. This is strong enough to report as an
     exploratory Qwen extension, while the MiniCPM adaptive visual-compute
     result remains the mature main contribution.
+- [x] Run broader 50-per-class Qwen visual-token pruning validation.
+  - Output:
+    `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced50pc.jsonl`
+  - Sample: requested 50 rows/class and obtained 573 BaboonLand rows, with
+    three settings per row (`1719` records total).
+  - No-prune: accuracy `0.4119`, macro F1 `0.3328`, median generation latency
+    `267.54 ms`, mean prompt tokens `717.55`.
+  - Random-prune 25%: accuracy `0.3892`, macro F1 `0.3154`, median generation
+    latency `239.98 ms`, mean prompt tokens `564.16`; fixed 10 no-prune errors
+    but broke 23 no-prune correct rows.
+  - Cluster-merge-prune 25%: accuracy `0.4188`, macro F1 `0.3492`, median
+    generation latency `240.36 ms`, mean prompt tokens `566.15`; fixed 16
+    no-prune errors and broke 12 no-prune correct rows.
+  - Entropy-gated cluster-merge-prune 25%, excluding no-prune `Foraging`
+    predictions as fragile: threshold `0.3192`, pruned `430/573` rows,
+    accuracy `0.4154`, macro F1 `0.3419`, median generation latency
+    `240.48 ms`, mean prompt tokens `603.88`; fixed 8 no-prune errors and
+    broke 6 no-prune correct rows.
+- [x] Bootstrap the 50-per-class Qwen visual-token pruning validation.
+  - Output:
+    `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_policy_bootstrap_balanced50pc.json`
+  - Grouping: ID prefix before first colon; `549` groups, `2000` bootstrap
+    samples.
+  - Cluster-merge-prune 25% minus no-prune: accuracy diff mean `+0.0069`,
+    CI `-0.0121..+0.0247`; macro-F1 diff mean `+0.0164`, CI
+    `-0.0025..+0.0380`; median generation-latency diff mean `-27.16 ms`, CI
+    `-27.37..-26.91`.
+  - Entropy-gated cluster-prune 25% minus no-prune: accuracy diff mean
+    `+0.0035`, CI `-0.0088..+0.0159`; macro-F1 diff mean `+0.0092`, CI
+    `-0.0043..+0.0238`; median generation-latency diff mean `-27.00 ms`, CI
+    `-27.29..-26.61`.
+  - Cluster-merge-prune 25% minus random-prune 25%: accuracy diff mean
+    `+0.0299`, CI `+0.0103..+0.0508`; macro-F1 diff mean `+0.0340`, CI
+    `+0.0117..+0.0578`.
+  - Interpretation: the broader validation confirms cluster-representative
+    pruning is meaningfully better than random pruning at the same prune rate
+    and consistently reduces latency/prompt length versus no-prune. The
+    quality gain over no-prune is positive but not decisive at this sample
+    size, so Qwen pruning should remain an exploratory/secondary contribution
+    unless a full-validation run is added.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6

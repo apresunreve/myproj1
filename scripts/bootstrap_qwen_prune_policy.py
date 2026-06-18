@@ -78,8 +78,21 @@ def make_policy_rows(
 
 
 def summarize(rows: list[dict[str, Any]], baseline_rows: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
+    from collections import Counter
+
     n = len(rows)
     correct = sum(1 for row in rows if row.get("correct"))
+    gold_counts = Counter(row.get("gold_label") for row in rows)
+    pred_counts = Counter(row.get("pred_label") for row in rows)
+    tp_counts = Counter(row.get("gold_label") for row in rows if row.get("pred_label") == row.get("gold_label"))
+    f1_values = []
+    for label, support in gold_counts.items():
+        tp = tp_counts[label]
+        fp = pred_counts[label] - tp
+        fn = support - tp
+        precision = tp / (tp + fp) if tp + fp else 0.0
+        recall = tp / (tp + fn) if tp + fn else 0.0
+        f1_values.append(2 * precision * recall / (precision + recall) if precision + recall else 0.0)
     latencies = [float(row["generation_latency_ms"]) for row in rows if row.get("generation_latency_ms") is not None]
     prompt_tokens = [
         float(row["prompt_tokens_after_prune"])
@@ -102,6 +115,7 @@ def summarize(rows: list[dict[str, Any]], baseline_rows: dict[str, dict[str, Any
     return {
         "n": n,
         "accuracy": correct / n if n else 0.0,
+        "macro_f1": sum(f1_values) / len(f1_values) if f1_values else 0.0,
         "pruned_load": pruned / n if n else 0.0,
         "generation_latency_median_ms": statistics.median(latencies) if latencies else None,
         "generation_latency_mean_ms": statistics.mean(latencies) if latencies else None,
@@ -123,6 +137,7 @@ def percentile(values: list[float], q: float) -> float:
 def summarize_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
     keys = [
         "accuracy",
+        "macro_f1",
         "pruned_load",
         "generation_latency_median_ms",
         "generation_latency_mean_ms",
@@ -153,6 +168,7 @@ def summarize_differences(
 ) -> dict[str, Any]:
     keys = [
         "accuracy",
+        "macro_f1",
         "generation_latency_median_ms",
         "generation_latency_mean_ms",
         "prompt_tokens_mean",
