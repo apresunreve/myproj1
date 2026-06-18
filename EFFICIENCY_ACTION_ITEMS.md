@@ -661,6 +661,28 @@
     pruning is better than random pruning and that entropy gating preserves
     the useful fixes while avoiding observed breakages. This is now a stronger
     extension result, though it is still smaller than a full-validation claim.
+- [x] Bootstrap the larger Qwen visual-token pruning validation.
+  - Script: `scripts/bootstrap_qwen_prune_policy.py`
+  - Output:
+    `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_policy_bootstrap_balanced20pc.json`
+  - Grouping: ID prefix before first colon; `229` groups, `2000` bootstrap
+    samples.
+  - Entropy-gated cluster-prune 25% observed accuracy `0.4628`; bootstrap
+    accuracy mean `0.4629`, CI `0.4042..0.5242`.
+  - Paired entropy-gated minus no-prune accuracy difference: mean `+0.0205`,
+    CI `+0.0041..+0.0381`, `P(diff>0)=0.9925`.
+  - Paired entropy-gated minus no-prune median generation-latency difference:
+    mean `-26.40 ms`, CI `-27.45..-24.85`, `P(diff<0)=1.0000`.
+  - Paired entropy-gated minus no-prune mean prompt-token difference:
+    mean `-113.83`, CI `-122.82..-104.46`.
+  - Paired cluster-merge-prune 25% minus random-prune 25% accuracy
+    difference: mean `+0.0417`, CI `+0.0122..+0.0756`,
+    `P(diff>0)=0.9940`.
+  - Interpretation: on this stratified sample, entropy-gated cluster pruning
+    has a positive paired accuracy interval versus no-prune and a consistent
+    latency/prompt-length reduction. This is strong enough to report as an
+    exploratory Qwen extension, while the MiniCPM adaptive visual-compute
+    result remains the mature main contribution.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6
