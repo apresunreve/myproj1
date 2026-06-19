@@ -3,6 +3,49 @@
 This document records the current generation-eval baseline before adding
 label-likelihood, confidence-gated fallback, or frame/token compression.
 
+## Current Efficiency Headline
+
+The paper-level efficiency story is **speculative visual inference / adaptive
+visual compute** for wildlife behavior recognition. The mature result uses
+MiniCPM-V 4.6 on BaboonLand: a cheap 4-frame pass nearly matches 8-frame
+quality, and generation-logit entropy can route only uncertain/class-sensitive
+examples to fuller visual input.
+
+Best mature MiniCPM routing result:
+
+- 4-frame uniform: accuracy `0.7688`, macro F1 `0.4145`, median latency
+  `247.11 ms`, p90 `252.42 ms`.
+- 8-frame uniform: accuracy `0.7709`, macro F1 `0.4212`, median latency
+  `304.54 ms`, p90 `340.65 ms`.
+- Class-aware 4-frame to 8-frame entropy fallback: fallback load `0.0707`,
+  accuracy `0.7736`, macro F1 `0.4208`, median latency `246.57 ms`, p90
+  `274.71 ms`.
+- Held-out split validation for the class-aware fallback: mean accuracy
+  `0.7726`, mean macro F1 `0.4081`, fallback load `0.0671`.
+
+Exploratory Qwen visual-token pruning extension:
+
+| Policy | Rows | Accuracy | Macro F1 | Median Generation Latency |
+|---|---:|---:|---:|---:|
+| No-prune | 573 | 0.4119 | 0.3328 | 267.54 ms |
+| Random-prune 25% | 573 | 0.3892 | 0.3154 | 239.98 ms |
+| Cluster-merge-prune 25% | 573 | 0.4188 | 0.3492 | 240.36 ms |
+| Entropy-gated cluster-prune 25% | 573 | 0.4154 | 0.3419 | 240.48 ms |
+
+Bootstrap on the 573-row Qwen stratified sample:
+
+- Cluster-merge-prune 25% beats random-prune 25% by `+0.0299` accuracy
+  (`CI +0.0103..+0.0508`) and `+0.0340` macro F1
+  (`CI +0.0117..+0.0578`).
+- Cluster-merge-prune 25% versus no-prune trends positive but is not decisive:
+  accuracy diff `+0.0069` with CI crossing zero; macro-F1 diff `+0.0164`
+  with CI crossing zero.
+- Latency and prompt length reductions versus no-prune are consistent.
+
+Interpretation: Qwen token pruning is a solid exploratory extension,
+especially versus random pruning, but MiniCPM adaptive visual compute remains
+the main validated contribution.
+
 ## Current MiniCPM Results
 
 Full MiniCPM-V 4.6 LoRA evals completed on this node. All rows parsed.

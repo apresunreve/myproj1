@@ -2,14 +2,51 @@
 
 *Created: 2026-05-13.*
 
+*Efficiency update: 2026-06-19.*
+
 This document explains the current results of the wildlife behavior recognition
 project for someone who has not seen the project before.
 
 The short version: this project tests whether modern vision-language models
 (VLMs) can recognize animal behaviors from short video clips better than
-traditional video classification models. The current evidence says yes:
-after lightweight fine-tuning, several VLMs outperform specialist video models
-on two wildlife behavior datasets.
+traditional video classification models, and how to make that inference
+efficient enough for large ecological video collections. The current evidence
+says yes: after lightweight fine-tuning, several VLMs outperform specialist
+video models on two wildlife behavior datasets. The newer efficiency result is
+that the visual input does not always need to be processed at full cost:
+compressed-frame inference, generation-logit confidence, and adaptive fallback
+can preserve most quality while reducing visual compute.
+
+## 0. Current Paper Story
+
+The paper-level contribution is now best framed as **efficient VLM adaptation
+for wildlife behavior recognition**. The mature main result is speculative
+visual inference / adaptive visual compute: run a cheap compressed visual pass
+first, estimate confidence from normal generation logits, and spend more visual
+compute only on uncertain or class-sensitive examples.
+
+The strongest mature efficiency result is MiniCPM-V 4.6 on BaboonLand. A
+4-frame pass nearly matches 8-frame quality while reducing latency, and a
+class-aware entropy fallback routes about 7% of rows to 8-frame inference with
+near-8-frame accuracy and much lower p90 latency than broad fallback policies.
+
+There is also an exploratory Qwen2.5-VL visual-token pruning extension. On a
+573-row stratified BaboonLand sample, 25% cluster-representative visual-token
+pruning beats random pruning at the same prune rate:
+
+| Policy | Accuracy | Macro F1 | Median Generation Latency |
+|---|---:|---:|---:|
+| No-prune | 0.4119 | 0.3328 | 267.54 ms |
+| Random-prune 25% | 0.3892 | 0.3154 | 239.98 ms |
+| Cluster-merge-prune 25% | 0.4188 | 0.3492 | 240.36 ms |
+| Entropy-gated cluster-prune 25% | 0.4154 | 0.3419 | 240.48 ms |
+
+Bootstrap on the 573-row sample shows cluster-merge-prune 25% beats
+random-prune 25% by `+0.0299` accuracy (`CI +0.0103..+0.0508`) and `+0.0340`
+macro F1 (`CI +0.0117..+0.0578`). Versus no-prune, quality trends positive
+but the CI crosses zero, while generation latency and prompt length decrease
+consistently. This should be treated as a secondary/exploratory contribution
+unless a full-validation Qwen run is added.
 
 ## 1. What problem is this project solving?
 

@@ -1,9 +1,45 @@
 # Wildlife Behavior Recognition with Adapted Vision-Language Models — Comprehensive Project Summary
 
 *Audience: advisor, collaborators, paper reviewers. Self-contained.*
-*Last updated: 2026-05-03.*
+*Last updated: 2026-06-19.*
 
 ---
+
+## 0. Current Paper Big Picture
+
+The paper is now best positioned around **efficient VLM adaptation for wildlife
+behavior recognition**. The adaptation results show that LoRA-tuned VLMs can be
+strong behavior classifiers on KABR and BaboonLand. The efficiency results add
+the main new systems contribution: **speculative visual inference / adaptive
+visual compute**. Instead of always processing the full visual input, the model
+runs a cheap compressed visual pass, estimates confidence from ordinary
+generation logits, and selectively spends more visual compute only on uncertain
+or class-sensitive examples.
+
+The strongest mature contribution remains the MiniCPM-V 4.6 BaboonLand
+adaptive frame result. Four uniform frames nearly match eight-frame quality,
+and a class-aware entropy fallback routes only about 7% of rows to eight-frame
+inference while preserving near-eight-frame accuracy/macro F1 and keeping p90
+latency much lower than broad fallback policies.
+
+The Qwen2.5-VL visual-token pruning work is a secondary/exploratory extension
+of the same adaptive-compute idea inside the VLM prefix. On a 573-row
+stratified BaboonLand sample:
+
+| Policy | Accuracy | Macro F1 | Median Generation Latency |
+|---|---:|---:|---:|
+| No-prune | 0.4119 | 0.3328 | 267.54 ms |
+| Random-prune 25% | 0.3892 | 0.3154 | 239.98 ms |
+| Cluster-merge-prune 25% | 0.4188 | 0.3492 | 240.36 ms |
+| Entropy-gated cluster-prune 25% | 0.4154 | 0.3419 | 240.48 ms |
+
+Bootstrap shows cluster-merge-prune 25% beats random-prune 25% by `+0.0299`
+accuracy (`CI +0.0103..+0.0508`) and `+0.0340` macro F1
+(`CI +0.0117..+0.0578`). Versus no-prune, the quality trend is positive but
+not decisive at this sample size, while latency and prompt length consistently
+decrease. This should be framed as evidence that adaptive visual compute can
+also apply to visual-token prefixes, not as the main validated result unless a
+full-validation Qwen run is added.
 
 ## 1. Motivation and background
 

@@ -1,9 +1,52 @@
 # VLM Adaptation for Wildlife Behavior Recognition — Project Summary
 
 *Target reader: a collaborator who has not seen this project before.*
-*Updated: 2026-04-25.*
+*Updated: 2026-06-19.*
 
 ---
+
+## 0. Current Paper Framing
+
+The project is now best framed as **efficient vision-language modeling for
+wildlife behavior recognition**. The first layer of the paper shows that
+LoRA-adapted VLMs are strong behavior classifiers on KABR and BaboonLand. The
+second, newer layer asks how to make that inference efficient enough for
+large-scale ecological video analysis.
+
+The main efficiency contribution is **speculative visual inference / adaptive
+visual compute**. The model first runs a cheap compressed visual pass, uses
+normal generation-logit entropy as a confidence signal, and only spends fuller
+visual compute on uncertain or class-sensitive examples. This is similar in
+spirit to speculative decoding, but the speculation is over visual evidence
+rather than text-token drafts.
+
+Current contribution hierarchy:
+
+- **Main mature contribution:** MiniCPM-V 4.6 adaptive frame inference on
+  BaboonLand. Four uniform frames nearly match eight-frame quality, and a
+  class-aware entropy fallback routes about 7% of rows to eight frames while
+  staying close to full eight-frame accuracy/macro F1.
+- **Supporting evaluation contribution:** latency-quality analysis with
+  accuracy, macro F1, fallback load, median/p90 latency, bootstrap
+  uncertainty, and class-level effects.
+- **Exploratory extension:** Qwen2.5-VL visual-token pruning. On a 573-row
+  stratified BaboonLand sample, cluster-representative 25% visual-token
+  pruning beats random pruning at the same prune rate and consistently lowers
+  generation latency, but its quality gain versus no-prune is not yet decisive.
+
+Latest Qwen pruning snapshot:
+
+| Policy | Accuracy | Macro F1 | Median Generation Latency |
+|---|---:|---:|---:|
+| No-prune | 0.4119 | 0.3328 | 267.54 ms |
+| Random-prune 25% | 0.3892 | 0.3154 | 239.98 ms |
+| Cluster-merge-prune 25% | 0.4188 | 0.3492 | 240.36 ms |
+| Entropy-gated cluster-prune 25% | 0.4154 | 0.3419 | 240.48 ms |
+
+Bootstrap on the 573-row sample: cluster-merge-prune 25% beats random-prune
+25% by `+0.0299` accuracy (`CI +0.0103..+0.0508`) and `+0.0340` macro F1
+(`CI +0.0117..+0.0578`). It should be presented as an exploratory extension
+unless a full-validation Qwen run is completed.
 
 ## 1. The task, in one paragraph
 
