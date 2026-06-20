@@ -57,6 +57,33 @@ Interpretation: the high-prune sweep puts the practical sweet spot around
 pruning buys more latency reduction, but quality drops; random and
 similarity-merge pruning are clearly worse policies at high prune rates.
 
+Full BaboonLand validation for 35% Qwen pruning:
+
+| Policy | Rows | Accuracy | Macro F1 | Median Generation Latency | Prompt Tokens |
+|---|---:|---:|---:|---:|---:|
+| No-prune | 6198 | 0.7249 | 0.3591 | 334.16 ms | 719.32 |
+| Random-prune 35% | 6198 | 0.7012 | 0.3459 | 268.44 ms | 504.56 |
+| Cluster-merge-prune 35% | 6198 | 0.7231 | 0.3678 | 268.91 ms | 507.55 |
+| Entropy-gated cluster-prune 35%, 50% load | 6198 | 0.7249 | 0.3591 | 276.00 ms | 613.37 |
+
+Bootstrap on the full `6198`-row Qwen validation:
+
+- Cluster-merge-prune 35% clearly beats random-prune 35% by `+0.0220`
+  accuracy (`CI +0.0158..+0.0283`) and `+0.0221` macro F1
+  (`CI +0.0098..+0.0354`).
+- Cluster-merge-prune 35% versus no-prune is not an accuracy improvement:
+  accuracy diff `-0.0017` with CI `-0.0066..+0.0032`; macro-F1 diff trends
+  positive at `+0.0089` but CI crosses zero (`-0.0049..+0.0248`).
+- Entropy-gated cluster-prune 35% at 50% load had identical predictions to
+  no-prune in this run and reduced median generation latency by about
+  `58.08 ms` with CI `-58.79..-57.17`.
+
+Interpretation: the full run verifies that cluster-representative pruning is a
+real policy improvement over random pruning and gives a stable latency/prompt
+reduction. It does not verify a quality gain over no-prune. The paper-safe Qwen
+claim is therefore efficiency-preserving gated pruning, not accuracy-improving
+unconditional pruning.
+
 Interpretation: Qwen token pruning is a solid exploratory extension,
 especially versus random pruning, but MiniCPM adaptive visual compute remains
 the main validated contribution.

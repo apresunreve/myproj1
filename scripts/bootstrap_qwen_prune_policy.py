@@ -33,25 +33,27 @@ def parse_fragile_labels(value: str) -> set[str]:
 def make_policy_rows(
     records: list[dict[str, Any]],
     *,
+    prune_fraction: float,
     entropy_threshold: float,
     fragile_labels: set[str],
 ) -> dict[str, dict[str, dict[str, Any]]]:
+    fraction_tag = f"{int(round(prune_fraction * 100))}"
     by_policy: dict[str, dict[str, dict[str, Any]]] = {
         "no_prune": {},
-        "random_prune_25": {},
-        "cluster_merge_prune_25": {},
-        "entropy_gated_cluster_merge_prune_25": {},
+        f"random_prune_{fraction_tag}": {},
+        f"cluster_merge_prune_{fraction_tag}": {},
+        f"entropy_gated_cluster_merge_prune_{fraction_tag}": {},
     }
     no_prune = {row["id"]: row for row in records if row["policy"] == "no_prune"}
     random_prune = {
         row["id"]: row
         for row in records
-        if row["policy"] == "random_prune" and abs(float(row["prune_fraction"]) - 0.25) < 1e-9
+        if row["policy"] == "random_prune" and abs(float(row["prune_fraction"]) - prune_fraction) < 1e-9
     }
     cluster_prune = {
         row["id"]: row
         for row in records
-        if row["policy"] == "cluster_merge_prune" and abs(float(row["prune_fraction"]) - 0.25) < 1e-9
+        if row["policy"] == "cluster_merge_prune" and abs(float(row["prune_fraction"]) - prune_fraction) < 1e-9
     }
     missing_random = sorted(set(no_prune) - set(random_prune))
     missing_cluster = sorted(set(no_prune) - set(cluster_prune))
@@ -62,8 +64,8 @@ def make_policy_rows(
         )
 
     by_policy["no_prune"] = no_prune
-    by_policy["random_prune_25"] = random_prune
-    by_policy["cluster_merge_prune_25"] = cluster_prune
+    by_policy[f"random_prune_{fraction_tag}"] = random_prune
+    by_policy[f"cluster_merge_prune_{fraction_tag}"] = cluster_prune
     gated = {}
     for row_id, base in no_prune.items():
         entropy = base.get("confidence", {}).get("mean_token_entropy")
@@ -73,7 +75,7 @@ def make_policy_rows(
             and base.get("pred_label") not in fragile_labels
         )
         gated[row_id] = cluster_prune[row_id] if use_pruned else base
-    by_policy["entropy_gated_cluster_merge_prune_25"] = gated
+    by_policy[f"entropy_gated_cluster_merge_prune_{fraction_tag}"] = gated
     return by_policy
 
 
@@ -208,6 +210,7 @@ def summarize_differences(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-jsonl", required=True)
+    parser.add_argument("--prune-fraction", type=float, default=0.25)
     parser.add_argument("--entropy-threshold", type=float, default=0.3235232369916048)
     parser.add_argument("--fragile-labels", default="Foraging")
     parser.add_argument("--n-bootstrap", type=int, default=2000)
@@ -218,6 +221,7 @@ def main() -> None:
     records = load_records(Path(args.input_jsonl))
     policies = make_policy_rows(
         records,
+        prune_fraction=args.prune_fraction,
         entropy_threshold=args.entropy_threshold,
         fragile_labels=parse_fragile_labels(args.fragile_labels),
     )
@@ -244,6 +248,7 @@ def main() -> None:
 
     output = {
         "input_jsonl": args.input_jsonl,
+        "prune_fraction": args.prune_fraction,
         "entropy_threshold": args.entropy_threshold,
         "fragile_labels": sorted(parse_fragile_labels(args.fragile_labels)),
         "n_rows": len(baseline_rows),
@@ -253,7 +258,10 @@ def main() -> None:
         "bootstrap": {name: summarize_samples(policy_samples) for name, policy_samples in samples.items()},
         "paired_differences": {
             "vs_no_prune": summarize_differences(samples, baseline_name="no_prune"),
-            "vs_random_prune_25": summarize_differences(samples, baseline_name="random_prune_25"),
+            f"vs_random_prune_{int(round(args.prune_fraction * 100))}": summarize_differences(
+                samples,
+                baseline_name=f"random_prune_{int(round(args.prune_fraction * 100))}",
+            ),
         },
     }
     output_path = Path(args.output_json)

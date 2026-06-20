@@ -57,6 +57,16 @@ accuracy `0.4587`, macro F1 `0.3833`, and median generation latency
 35% cluster pruning reached accuracy `0.4711` and macro F1 `0.3956` while
 pruning `182/242` rows.
 
+Full BaboonLand validation at 35% pruning is more conservative. On all `6198`
+rows, no-prune accuracy/macro F1 were `0.7249`/`0.3591` at `334.16 ms` median
+generation latency. Random 35% pruning degraded to `0.7012`/`0.3459`.
+Cluster-merge 35% preserved accuracy closely at `0.7231`, improved macro F1 to
+`0.3678`, and reduced median generation latency to `268.91 ms`; the paired
+bootstrap accuracy difference versus no-prune crossed zero. The safest
+full-validation Qwen efficiency point is entropy-gated 35% cluster pruning at
+50% load: it produced identical predictions to no-prune while reducing median
+generation latency to `276.00 ms`.
+
 ## 1. What problem is this project solving?
 
 The task is **wildlife behavior recognition from short video clips**.

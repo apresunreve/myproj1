@@ -750,6 +750,40 @@
     policy that stays near no-prune quality, with the best smoke-test point
     around `35%`. Above `40%`, latency improves but quality drops enough that
     the result is best treated as a stress test, not a recommended setting.
+- [x] Verify 35% Qwen cluster pruning on the full BaboonLand validation set.
+  - Output:
+    `artifacts/full_eval/visual_tokens/qwen3b_b2_visual_token_cluster35_full.jsonl`
+  - Sample: all `6198` BaboonLand validation rows, with no-prune, random-prune
+    35%, and cluster-merge-prune 35% (`18594` records total).
+  - No-prune: accuracy `0.7249`, macro F1 `0.3591`, median generation latency
+    `334.16 ms`, mean prompt tokens `719.32`.
+  - Random-prune 35%: accuracy `0.7012`, macro F1 `0.3459`, median generation
+    latency `268.44 ms`, mean prompt tokens `504.56`; fixed 122 no-prune
+    errors but broke 269 no-prune correct rows.
+  - Cluster-merge-prune 35%: accuracy `0.7231`, macro F1 `0.3678`, median
+    generation latency `268.91 ms`, mean prompt tokens `507.55`; fixed 127
+    no-prune errors and broke 138 no-prune correct rows.
+  - Entropy-gated cluster-prune 35%, using the full-run median entropy threshold
+    `0.130276` and treating no-prune `Foraging` predictions as fragile:
+    pruned `3099/6198` rows, produced identical predictions to no-prune,
+    median generation latency `276.00 ms`, and mean prompt tokens `613.37`.
+  - Bootstrap output:
+    `artifacts/full_eval/visual_tokens/qwen3b_b2_cluster35_full_policy_bootstrap.json`
+  - Bootstrap, cluster 35% minus random 35%: accuracy diff `+0.0220`, CI
+    `+0.0158..+0.0283`; macro-F1 diff `+0.0221`, CI `+0.0098..+0.0354`.
+  - Bootstrap, cluster 35% minus no-prune: accuracy diff `-0.0017`, CI
+    `-0.0066..+0.0032`; macro-F1 diff `+0.0089`, CI `-0.0049..+0.0248`;
+    median generation-latency diff `-65.25 ms`, CI `-65.36..-65.15`.
+  - Bootstrap, entropy-gated cluster 35% minus no-prune: accuracy and macro-F1
+    differences exactly `0.0`; median generation-latency diff `-58.08 ms`, CI
+    `-58.79..-57.17`; prompt-token diff `-105.98`, CI
+    `-108.73..-103.30`.
+  - Interpretation: the full run verifies the pruning mechanism as an
+    efficiency method, not an accuracy-improvement method. Cluster pruning is
+    decisively better than random pruning at the same rate and nearly preserves
+    full accuracy while cutting latency. The paper-safe operating point is the
+    entropy-gated 50%-load policy because it matched no-prune predictions in
+    this full run while reducing latency.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6
