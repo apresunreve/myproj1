@@ -54,13 +54,14 @@ BABOONLAND_CLASSES = [
 
 def load_rows(path: Path, max_rows: int | None = None) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    row_limit = max_rows if max_rows is not None and max_rows > 0 else None
     with path.open("r", encoding="utf-8") as handle:
         for line in handle:
             line = line.strip()
             if not line:
                 continue
             rows.append(json.loads(line))
-            if max_rows is not None and len(rows) >= max_rows:
+            if row_limit is not None and len(rows) >= row_limit:
                 break
     return rows
 
