@@ -1,6 +1,6 @@
 # Session Handoff: Efficiency and Routing Work
 
-Last updated: 2026-06-15
+Last updated: 2026-06-19
 
 This handoff is for future sessions continuing the VLM efficiency, routing, and frame-compression work. It summarizes the current repository state, decisions already made, key numerical results, and the next useful actions.
 
@@ -28,7 +28,7 @@ Main contribution framing:
 - Qwen visual-token work is now a useful extension track:
   - Qwen2.5-VL expands 4 selected frames to about 616 visual placeholder tokens.
   - True shorter-prefix pruning works technically and reduces LLM-side prompt length/latency.
-  - Blind or high-similarity deletion is not reliable enough yet. Cluster-representative pruning is now implemented and has a modest 25% smoke signal, but confidence-gated pruning or larger timed runs are still needed.
+  - Blind or high-similarity deletion is not reliable enough yet. Cluster-representative pruning is the strongest tested policy, including a new 30%-50% high-prune sweep where the best smoke point was 35% cluster pruning.
 
 At the latest check on 2026-06-15, no relevant training/eval/Slurm jobs were running and the GPU was idle.
 
@@ -40,6 +40,7 @@ At the latest check on 2026-06-15, no relevant training/eval/Slurm jobs were run
   - 242-row stratified smoke: entropy-gated 25% `cluster_merge_prune` improved accuracy over no-prune by mean `+0.0205`, CI `+0.0041..+0.0381`.
   - 573-row broader stratified smoke: cluster-merge-prune 25% improved macro F1 over no-prune by mean `+0.0164`, CI `-0.0025..+0.0380`, and reduced median generation latency by about `27 ms`; the quality CI crosses zero.
   - 573-row cluster-merge-prune 25% clearly beats random-prune 25%: accuracy diff mean `+0.0299`, CI `+0.0103..+0.0508`; macro-F1 diff mean `+0.0340`, CI `+0.0117..+0.0578`.
+  - 242-row high-prune sweep over 30%-50%: best unconditional point was `cluster_merge_prune@0.35`, accuracy `0.4587`, macro F1 `0.3833`, median generation latency `267.37 ms` versus no-prune `0.4504`, `0.3764`, and `331.57 ms`. Entropy-gated 35% cluster pruning reached accuracy `0.4711`, macro F1 `0.3956`, while pruning `182/242` rows.
 - Caution: Qwen token pruning is now a solid exploratory extension, especially versus random pruning, but not a full-validation main claim.
 - Immediate next work: either run a full BaboonLand B2 Qwen validation if GPU time permits, or consolidate the paper with MiniCPM adaptive visual compute as the main contribution and Qwen token pruning as a secondary/exploratory extension.
 
@@ -118,6 +119,15 @@ Update on 2026-06-12:
   - Entropy-gated cluster-prune 25% minus no-prune: accuracy diff mean +0.0035, CI -0.0088..+0.0159; macro-F1 diff mean +0.0092, CI -0.0043..+0.0238; median generation-latency diff mean -27.00 ms, CI -27.29..-26.61.
   - Cluster-merge-prune 25% minus random-prune 25%: accuracy diff mean +0.0299, CI +0.0103..+0.0508; macro-F1 diff mean +0.0340, CI +0.0117..+0.0578.
   - Interpretation: the broader validation confirms cluster-representative pruning is better than random pruning and consistently reduces generation latency/prompt length versus no-prune. Quality versus no-prune trends positive but is not decisive, so this remains a secondary/exploratory contribution.
+- Ran a higher-rate Qwen visual-token pruning sweep.
+  - Output: `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_high_prune_sweep_balanced20pc.jsonl`
+  - Sample: requested 20 rows/class and obtained 242 BaboonLand rows, with no-prune plus random, similarity-merge, and cluster-merge pruning at 30%, 35%, 40%, 45%, and 50%.
+  - No-prune: accuracy 0.4504, macro F1 0.3764, median generation latency 331.57 ms, mean prompt tokens 716.13.
+  - Random pruning degraded as prune rate increased: accuracy 0.4380 at 30% and 0.4008 at 50%.
+  - Similarity-merge pruning was worse: accuracy 0.3967 at 30% and 0.3678 at 50%.
+  - Cluster-merge pruning was strongest: 35% pruning reached accuracy 0.4587, macro F1 0.3833, median generation latency 267.37 ms, and mean prompt tokens 505.45. At 50%, it still reduced latency to 248.89 ms but accuracy fell to 0.4215.
+  - Entropy-gated cluster pruning with no-prune `Foraging` treated as fragile improved the 35% point to accuracy 0.4711 and macro F1 0.3956 while pruning 182/242 rows, with median generation latency 268.49 ms and mean prompt tokens 557.35.
+  - Interpretation: high-prune stress testing supports a practical sweet spot near 35% cluster-representative pruning on this smoke sample. Higher prune rates mainly buy latency at the cost of quality.
 
 ## Workspace and Git Hygiene
 
@@ -177,6 +187,12 @@ At the last status check, no relevant background evaluation/training jobs were r
   `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_firstprob25_balanced50pc.json`
 - 50-per-class Qwen pruning policy bootstrap:
   `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_policy_bootstrap_balanced50pc.json`
+- High-prune 30%-50% Qwen sweep:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_high_prune_sweep_balanced20pc.jsonl`
+- High-prune 30%-50% Qwen sweep metrics:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_high_prune_sweep_balanced20pc.jsonl.metrics.json`
+- High-prune entropy-gated cluster-prune sweeps:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster_prune_conf_gate_entropy{30,35,40,45,50}_highsweep_balanced20pc.json`
 - Metrics for that smoke:
   `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced65.jsonl.metrics.json`
 - Entropy-gated 25% cluster-prune sweep:

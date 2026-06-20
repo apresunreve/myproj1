@@ -48,6 +48,15 @@ but the CI crosses zero, while generation latency and prompt length decrease
 consistently. This should be treated as a secondary/exploratory contribution
 unless a full-validation Qwen run is added.
 
+A higher-prune 242-row stress sweep over 30%-50% pruning reinforces the same
+pattern: random and similarity-merge pruning degrade as pruning gets more
+aggressive, while cluster-representative pruning remains the strongest policy.
+The best unconditional high-prune point was `cluster_merge_prune@0.35` with
+accuracy `0.4587`, macro F1 `0.3833`, and median generation latency
+`267.37 ms` versus no-prune `0.4504`, `0.3764`, and `331.57 ms`. Entropy-gated
+35% cluster pruning reached accuracy `0.4711` and macro F1 `0.3956` while
+pruning `182/242` rows.
+
 ## 1. What problem is this project solving?
 
 The task is **wildlife behavior recognition from short video clips**.

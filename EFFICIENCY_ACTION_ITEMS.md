@@ -723,6 +723,33 @@
     quality gain over no-prune is positive but not decisive at this sample
     size, so Qwen pruning should remain an exploratory/secondary contribution
     unless a full-validation run is added.
+- [x] Run higher-rate Qwen visual-token pruning sweep.
+  - Output:
+    `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_high_prune_sweep_balanced20pc.jsonl`
+  - Sample: requested 20 rows/class and obtained 242 BaboonLand rows, with
+    no-prune plus random, similarity-merge, and cluster-merge pruning at
+    `30%`, `35%`, `40%`, `45%`, and `50%` (`3872` records total).
+  - No-prune baseline on this run: accuracy `0.4504`, macro F1 `0.3764`,
+    median generation latency `331.57 ms`, mean prompt tokens `716.13`.
+  - Best high-prune unconditional setting: `cluster_merge_prune@0.35`,
+    accuracy `0.4587`, macro F1 `0.3833`, median generation latency
+    `267.37 ms` (`-19.4%`), mean prompt tokens `505.45` (`-29.4%`);
+    fixed 8 no-prune errors and broke 6 no-prune correct rows.
+  - More aggressive unconditional cluster pruning still reduced latency but
+    gave up quality: `0.40` accuracy `0.4380`, `0.45` accuracy `0.4298`,
+    and `0.50` accuracy `0.4215`.
+  - Random pruning degraded monotonically from accuracy `0.4380` at `30%`
+    to `0.4008` at `50%`. Similarity-merge pruning was worse, falling to
+    accuracy `0.3678` at `50%`.
+  - Entropy-gated cluster pruning with no-prune `Foraging` treated as fragile
+    improved the best point further: at `35%` pruning, threshold `0.3231`
+    pruned `182/242` rows, accuracy `0.4711`, macro F1 `0.3956`,
+    median generation latency `268.49 ms`, and mean prompt tokens `557.35`.
+  - Interpretation: higher pruning rates make the latency/prompt tradeoff
+    clearer. Cluster-representative pruning is the only tested high-prune
+    policy that stays near no-prune quality, with the best smoke-test point
+    around `35%`. Above `40%`, latency improves but quality drops enough that
+    the result is best treated as a stress test, not a recommended setting.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6

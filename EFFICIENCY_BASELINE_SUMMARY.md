@@ -42,6 +42,21 @@ Bootstrap on the 573-row Qwen stratified sample:
   with CI crossing zero.
 - Latency and prompt length reductions versus no-prune are consistent.
 
+Higher-prune Qwen stress sweep on the 242-row stratified sample:
+
+| Policy | Prune | Accuracy | Macro F1 | Median Generation Latency | Prompt Tokens |
+|---|---:|---:|---:|---:|---:|
+| No-prune | 0% | 0.4504 | 0.3764 | 331.57 ms | 716.13 |
+| Random-prune | 50% | 0.4008 | 0.3328 | 216.70 ms | 410.04 |
+| Similarity-merge-prune | 50% | 0.3678 | 0.3179 | 215.94 ms | 410.04 |
+| Cluster-merge-prune | 35% | 0.4587 | 0.3833 | 267.37 ms | 505.45 |
+| Entropy-gated cluster-prune | 35% | 0.4711 | 0.3956 | 268.49 ms | 557.35 |
+
+Interpretation: the high-prune sweep puts the practical sweet spot around
+35% cluster-representative pruning on this smoke sample. More aggressive 45%-50%
+pruning buys more latency reduction, but quality drops; random and
+similarity-merge pruning are clearly worse policies at high prune rates.
+
 Interpretation: Qwen token pruning is a solid exploratory extension,
 especially versus random pruning, but MiniCPM adaptive visual compute remains
 the main validated contribution.
