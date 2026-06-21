@@ -106,6 +106,30 @@ Bootstrap on the 8-frame `573`-row stratified sample:
   subset, not the full BaboonLand distribution. It should not be used to
   replace the full-validation quality numbers.
 
+Full 8-frame BaboonLand validation for 35% Qwen pruning:
+
+| Policy | Rows | Accuracy | Macro F1 | Median Generation Latency | Prompt Tokens |
+|---|---:|---:|---:|---:|---:|
+| No-prune | 6198 | 0.7519 | 0.3770 | 505.32 ms | 1341.06 |
+| Random-prune 35% | 6198 | 0.7402 | 0.3790 | 391.33 ms | 911.07 |
+| Cluster-merge-prune 35% | 6198 | 0.7531 | 0.3839 | 388.50 ms | 918.06 |
+| Entropy-gated cluster-prune 35%, 50% load | 6198 | 0.7517 | 0.3770 | 404.84 ms | 1129.39 |
+
+Bootstrap on the full 8-frame `6198`-row Qwen validation:
+
+- Cluster-merge-prune 35% clearly beats random-prune 35% on accuracy:
+  `+0.0130` (`CI +0.0075..+0.0184`) while also reducing median generation
+  latency by `2.83 ms`.
+- Cluster-merge-prune 35% versus no-prune trends slightly positive in quality
+  but is not a significant quality gain: accuracy diff `+0.0013`
+  (`CI -0.0034..+0.0057`) and macro-F1 diff `+0.0069`
+  (`CI -0.0060..+0.0224`). Median generation latency drops by `116.83 ms`.
+- Entropy-gated cluster-prune 35% at 50% load changes only one prediction
+  versus no-prune, with accuracy diff `-0.0002` and median generation-latency
+  diff `-95.92 ms`.
+- This is the cleanest Qwen pruning validation because it uses the full
+  BaboonLand distribution and the paper-style 8-frame input.
+
 Interpretation: Qwen token pruning is a solid exploratory extension,
 especially versus random pruning, but MiniCPM adaptive visual compute remains
 the main validated contribution.

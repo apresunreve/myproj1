@@ -818,6 +818,39 @@
     predictions. The low absolute accuracy is because the balanced subset
     overweights rare/hard classes; it is not directly comparable to the
     full-distribution PPTX number.
+- [x] Run full-dataset 8-frame Qwen pruning validation.
+  - Output:
+    `artifacts/full_eval/visual_tokens/qwen3b_b2_visual_token_cluster35_8frames_full.jsonl`
+  - Sample: all `6198` BaboonLand validation rows, with no-prune,
+    random-prune 35%, and cluster-merge-prune 35% (`18594` records total).
+  - No-prune: accuracy `0.7519`, macro F1 `0.3770`, median generation latency
+    `505.32 ms`, mean prompt tokens `1341.06`.
+  - Random-prune 35%: accuracy `0.7402`, macro F1 `0.3790`, median generation
+    latency `391.33 ms`, mean prompt tokens `911.07`; fixed 135 no-prune
+    errors and broke 207 no-prune correct rows.
+  - Cluster-merge-prune 35%: accuracy `0.7531`, macro F1 `0.3839`, median
+    generation latency `388.50 ms`, mean prompt tokens `918.06`; fixed 112
+    no-prune errors and broke 104 no-prune correct rows.
+  - Entropy-gated cluster-prune 35% at the median no-prune entropy threshold
+    `0.103202`, with no-prune `Foraging` treated as fragile: pruned
+    `3099/6198` rows, changed 1 prediction, accuracy `0.7517`, macro F1
+    `0.3770`, and median generation latency `404.84 ms`.
+  - Bootstrap output:
+    `artifacts/full_eval/visual_tokens/qwen3b_b2_cluster35_8frames_full_policy_bootstrap.json`
+  - Bootstrap, cluster 35% minus random 35%: accuracy diff `+0.0130`, CI
+    `+0.0075..+0.0184`; macro-F1 diff `+0.0047`, CI
+    `-0.0129..+0.0205`; median generation-latency diff `-2.83 ms`.
+  - Bootstrap, cluster 35% minus no-prune: accuracy diff `+0.0013`, CI
+    `-0.0034..+0.0057`; macro-F1 diff `+0.0069`, CI `-0.0060..+0.0224`;
+    median generation-latency diff `-116.83 ms`.
+  - Bootstrap, entropy-gated cluster 35% minus no-prune: accuracy diff
+    `-0.0002`, CI `-0.0005..0.0`; macro-F1 diff `-0.0000`, CI
+    `-0.0001..0.0`; median generation-latency diff `-95.92 ms`.
+  - Interpretation: full 8-frame validation confirms the pruning story under
+    the paper-style frame count. Cluster-representative pruning is clearly
+    better than random pruning at the same rate, is statistically
+    indistinguishable from no-prune quality, and saves about 23% median
+    generation latency.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6
