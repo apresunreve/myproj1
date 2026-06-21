@@ -1,6 +1,6 @@
 # Session Handoff: Efficiency and Routing Work
 
-Last updated: 2026-06-19
+Last updated: 2026-06-20
 
 This handoff is for future sessions continuing the VLM efficiency, routing, and frame-compression work. It summarizes the current repository state, decisions already made, key numerical results, and the next useful actions.
 
@@ -43,8 +43,9 @@ At the latest check on 2026-06-15, no relevant training/eval/Slurm jobs were run
   - 242-row high-prune sweep over 30%-50%: best unconditional point was `cluster_merge_prune@0.35`, accuracy `0.4587`, macro F1 `0.3833`, median generation latency `267.37 ms` versus no-prune `0.4504`, `0.3764`, and `331.57 ms`. Entropy-gated 35% cluster pruning reached accuracy `0.4711`, macro F1 `0.3956`, while pruning `182/242` rows.
   - Full 6198-row BaboonLand validation at 35%: cluster-merge-prune 35% beat random-prune 35% by `+0.0220` accuracy, CI `+0.0158..+0.0283`, and `+0.0221` macro F1, CI `+0.0098..+0.0354`. Versus no-prune, accuracy diff was `-0.0017`, CI `-0.0066..+0.0032`, while median generation latency dropped by about `65 ms`.
   - Full 6198-row entropy-gated 35% cluster pruning at 50% load produced identical predictions to no-prune and reduced median generation latency from `334.16 ms` to `276.00 ms`.
+  - 8-frame 573-row stratified check at 35% pruning: no-prune accuracy `0.4468`, macro F1 `0.3648`, median generation latency `504.04 ms`; cluster-merge-prune accuracy `0.4380`, macro F1 `0.3561`, median `386.31 ms`; entropy-gated cluster pruning at 50% load matched no-prune predictions exactly and reduced median generation latency to `421.16 ms`.
 - Caution: Qwen token pruning is now full-validation verified as an efficiency-preserving exploratory extension, especially versus random pruning, but not as an accuracy-improving main claim.
-- Immediate next work: consolidate the paper with MiniCPM adaptive visual compute as the main contribution and Qwen token pruning as a secondary extension; only add more Qwen runs if a reviewer-facing ablation is needed.
+- Immediate next work: consolidate the paper with MiniCPM adaptive visual compute as the main contribution and Qwen token pruning as a secondary extension. A full 8-frame Qwen pruning run is optional; the stratified 8-frame check already shows the gated pruning mechanism behaves consistently, while the existing full 4-frame run is the stronger distribution-level evidence.
 
 Update on 2026-06-12:
 
@@ -142,6 +143,16 @@ Update on 2026-06-12:
   - Cluster 35% minus no-prune: accuracy diff -0.0017, CI -0.0066..+0.0032; macro-F1 diff +0.0089, CI -0.0049..+0.0248; median generation-latency diff -65.25 ms.
   - Entropy-gated 35% minus no-prune: accuracy and macro-F1 diffs exactly 0.0; median generation-latency diff -58.08 ms, CI -58.79..-57.17.
   - Interpretation: full validation confirms cluster-representative pruning is much better than random pruning and preserves quality closely while reducing latency. The safest claim is efficiency-preserving gated pruning, not unconditional quality improvement.
+- Ran an 8-frame stratified Qwen visual-token pruning check.
+  - Output: `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster35_8frames_balanced50pc.jsonl`
+  - Sample: requested 50 rows/class and obtained 573 BaboonLand rows, with no-prune, random-prune 35%, and cluster-merge-prune 35%.
+  - No-prune: accuracy 0.4468, macro F1 0.3648, median generation latency 504.04 ms, mean prompt tokens 1333.38.
+  - Random-prune 35%: accuracy 0.4293, macro F1 0.3521, median generation latency 389.15 ms, mean prompt tokens 906.06.
+  - Cluster-merge-prune 35%: accuracy 0.4380, macro F1 0.3561, median generation latency 386.31 ms, mean prompt tokens 912.99.
+  - Entropy-gated cluster-prune 35% at threshold 0.180715, with no-prune `Foraging` predictions treated as fragile, pruned 287/573 rows, changed zero predictions versus no-prune, and reduced median generation latency to 421.16 ms.
+  - Bootstrap output: `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster35_8frames_policy_bootstrap_balanced50pc.json`
+  - Bootstrap, entropy-gated cluster 35% minus no-prune: accuracy and macro-F1 differences exactly 0.0; median generation-latency diff -90.77 ms, CI -111.69..-77.73.
+  - Interpretation: 8-frame pruning behaves consistently with the full 4-frame validation: cluster pruning saves latency, and entropy gating is the safest quality-preserving policy. The low absolute accuracy is caused by balanced rare-class stress sampling, so do not compare it directly to full-distribution PPTX accuracy.
 
 ## Workspace and Git Hygiene
 
@@ -215,6 +226,14 @@ At the last status check, no relevant background evaluation/training jobs were r
   `artifacts/full_eval/visual_tokens/qwen3b_b2_cluster35_full_entropy_gate.json`
 - Full BaboonLand Qwen 35% pruning bootstrap:
   `artifacts/full_eval/visual_tokens/qwen3b_b2_cluster35_full_policy_bootstrap.json`
+- 8-frame stratified Qwen 35% cluster-prune validation:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster35_8frames_balanced50pc.jsonl`
+- 8-frame stratified Qwen 35% cluster-prune metrics:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster35_8frames_balanced50pc.jsonl.metrics.json`
+- 8-frame stratified Qwen 35% entropy-gated analysis:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster35_8frames_entropy_gate_balanced50pc.json`
+- 8-frame stratified Qwen 35% pruning bootstrap:
+  `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster35_8frames_policy_bootstrap_balanced50pc.json`
 - Metrics for that smoke:
   `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster_prune_conf_balanced65.jsonl.metrics.json`
 - Entropy-gated 25% cluster-prune sweep:

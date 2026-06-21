@@ -84,6 +84,28 @@ reduction. It does not verify a quality gain over no-prune. The paper-safe Qwen
 claim is therefore efficiency-preserving gated pruning, not accuracy-improving
 unconditional pruning.
 
+8-frame stratified Qwen pruning check:
+
+| Policy | Rows | Accuracy | Macro F1 | Median Generation Latency | Prompt Tokens |
+|---|---:|---:|---:|---:|---:|
+| No-prune | 573 | 0.4468 | 0.3648 | 504.04 ms | 1333.38 |
+| Random-prune 35% | 573 | 0.4293 | 0.3521 | 389.15 ms | 906.06 |
+| Cluster-merge-prune 35% | 573 | 0.4380 | 0.3561 | 386.31 ms | 912.99 |
+| Entropy-gated cluster-prune 35%, 50% load | 573 | 0.4468 | 0.3648 | 421.16 ms | 1123.05 |
+
+Bootstrap on the 8-frame `573`-row stratified sample:
+
+- Cluster-merge-prune 35% versus no-prune reduced median generation latency by
+  `117.73 ms`, with accuracy diff `-0.0089` and macro-F1 diff `-0.0092`;
+  both quality CIs cross zero.
+- Entropy-gated cluster-prune 35% at the median entropy threshold changed zero
+  predictions versus no-prune, so accuracy and macro-F1 differences are exactly
+  `0.0`; median generation latency dropped by `90.77 ms`
+  (`CI -111.69..-77.73`).
+- The absolute accuracy is low because this is a balanced rare-class stress
+  subset, not the full BaboonLand distribution. It should not be used to
+  replace the full-validation quality numbers.
+
 Interpretation: Qwen token pruning is a solid exploratory extension,
 especially versus random pruning, but MiniCPM adaptive visual compute remains
 the main validated contribution.

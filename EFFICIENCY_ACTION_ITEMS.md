@@ -784,6 +784,40 @@
     full accuracy while cutting latency. The paper-safe operating point is the
     entropy-gated 50%-load policy because it matched no-prune predictions in
     this full run while reducing latency.
+- [x] Run an 8-frame stratified Qwen pruning check to test the frame-count
+  mismatch hypothesis.
+  - Output:
+    `artifacts/smoke_eval/visual_tokens/qwen3b_b2_visual_token_cluster35_8frames_balanced50pc.jsonl`
+  - Sample: requested 50 rows/class and obtained `573` BaboonLand rows, with
+    no-prune, random-prune 35%, and cluster-merge-prune 35% (`1719` records).
+  - No-prune: accuracy `0.4468`, macro F1 `0.3648`, median generation latency
+    `504.04 ms`, mean prompt tokens `1333.38`.
+  - Random-prune 35%: accuracy `0.4293`, macro F1 `0.3521`, median generation
+    latency `389.15 ms`, mean prompt tokens `906.06`; fixed 7 no-prune errors
+    and broke 17 no-prune correct rows.
+  - Cluster-merge-prune 35%: accuracy `0.4380`, macro F1 `0.3561`, median
+    generation latency `386.31 ms`, mean prompt tokens `912.99`; fixed 9
+    no-prune errors and broke 14 no-prune correct rows.
+  - Entropy-gated cluster-prune 35% at median no-prune entropy threshold
+    `0.180715`, with no-prune `Foraging` treated as fragile: pruned
+    `287/573` rows, matched no-prune accuracy and macro F1 exactly, changed
+    zero predictions, and reduced median generation latency to `421.16 ms`.
+  - Bootstrap output:
+    `artifacts/smoke_eval/visual_tokens/qwen3b_b2_cluster35_8frames_policy_bootstrap_balanced50pc.json`
+  - Bootstrap, cluster 35% minus random 35%: accuracy diff `+0.0086`, CI
+    `-0.0071..+0.0261`; macro-F1 diff `+0.0039`, CI
+    `-0.0135..+0.0212`; median generation-latency diff `-2.81 ms`.
+  - Bootstrap, cluster 35% minus no-prune: accuracy diff `-0.0089`, CI
+    `-0.0248..+0.0070`; macro-F1 diff `-0.0092`, CI `-0.0277..+0.0092`;
+    median generation-latency diff `-117.73 ms`.
+  - Bootstrap, entropy-gated cluster 35% minus no-prune: accuracy and macro-F1
+    differences exactly `0.0`; median generation-latency diff `-90.77 ms`, CI
+    `-111.69..-77.73`.
+  - Interpretation: on balanced 8-frame stress sampling, pruning still gives
+    a large latency reduction and the entropy gate preserves no-prune
+    predictions. The low absolute accuracy is because the balanced subset
+    overweights rare/hard classes; it is not directly comparable to the
+    full-distribution PPTX number.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
   - [ ] MiniCPM-V 4.6
