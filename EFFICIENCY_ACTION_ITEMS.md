@@ -862,8 +862,19 @@
       from 200 to 156 tokens; all policies predicted `Head Up` correctly.
     - 4-frame smoke: 252 visual tokens, 88 pruned at 35%, prompt shortened
       from 338 to 250 tokens; all policies predicted `Head Up` correctly.
-    - Next MiniCPM step: run a small balanced KABR smoke before any
-      full-dataset MiniCPM pruning claim.
+    - Balanced KABR 5-per-class, 4-frame smoke passed:
+      `artifacts/smoke_eval/visual_tokens/minicpm_v46_kabr_visual_token_prune_balanced5pc_4frames.jsonl`.
+      No-prune: accuracy `0.3500`, macro F1 `0.2123`, median generation
+      latency `188.56 ms`, mean prompt tokens `327.65`.
+      Random-prune 35%: accuracy `0.3500`, macro F1 `0.2123`, median
+      generation latency `178.66 ms`, mean prompt tokens `242.95`, zero
+      prediction changes.
+      Cluster-merge-prune 35%: accuracy `0.3500`, macro F1 `0.2103`, median
+      generation latency `178.70 ms`, mean prompt tokens `242.95`, one
+      prediction change (`Run` to `Walk` on a gold `Trot` row), with no fixed
+      or broken no-prune correct rows.
+    - Next MiniCPM step: run a larger balanced KABR smoke or full KABR
+      validation before making any quality/latency claim.
 
 ## Commit Hygiene
 
