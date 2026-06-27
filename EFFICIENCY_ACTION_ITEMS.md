@@ -853,7 +853,17 @@
     generation latency.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
-  - [ ] MiniCPM-V 4.6
+  - [x] MiniCPM-V 4.6
+    - Added `scripts/inspect_minicpm_visual_tokens.py`.
+    - Added `scripts/eval_minicpm_visual_token_prune_smoke.py`.
+    - KABR one-row MiniCPM LoRA smoke passed at 2 frames and 4 frames with
+      no-prune, random-prune 35%, and cluster-merge-prune 35%.
+    - 2-frame smoke: 126 visual tokens, 44 pruned at 35%, prompt shortened
+      from 200 to 156 tokens; all policies predicted `Head Up` correctly.
+    - 4-frame smoke: 252 visual tokens, 88 pruned at 35%, prompt shortened
+      from 338 to 250 tokens; all policies predicted `Head Up` correctly.
+    - Next MiniCPM step: run a small balanced KABR smoke before any
+      full-dataset MiniCPM pruning claim.
 
 ## Commit Hygiene
 
