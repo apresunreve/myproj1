@@ -873,8 +873,27 @@
       generation latency `178.70 ms`, mean prompt tokens `242.95`, one
       prediction change (`Run` to `Walk` on a gold `Trot` row), with no fixed
       or broken no-prune correct rows.
-    - Next MiniCPM step: run a larger balanced KABR smoke or full KABR
-      validation before making any quality/latency claim.
+    - Balanced BaboonLand 5-per-class, 4-frame smoke passed:
+      `artifacts/smoke_eval/visual_tokens/minicpm_v46_baboonland_visual_token_prune_balanced5pc_4frames.jsonl`.
+      The joint validation file provided `62` BaboonLand rows, so the run
+      produced `186` records across no-prune, random-prune 35%, and
+      cluster-merge-prune 35%.
+      No-prune: accuracy `0.3226`, macro F1 `0.2379`, median generation
+      latency `307.09 ms`, mean prompt tokens `363.66`.
+      Random-prune 35%: accuracy `0.3548`, macro F1 `0.2471`, median
+      generation latency `300.53 ms`, mean prompt tokens `276.73`, seven
+      prediction changes, three fixed no-prune errors, and one broken
+      no-prune correct row.
+      Cluster-merge-prune 35%: accuracy `0.3226`, macro F1 `0.2382`, median
+      generation latency `301.59 ms`, mean prompt tokens `276.73`, three
+      prediction changes, one fixed no-prune error, and one broken no-prune
+      correct row.
+      Interpretation: MiniCPM shorter-prefix visual-token pruning now works on
+      both KABR and BaboonLand adapters. This smoke confirms technical support
+      and prompt-token reduction, but the tiny balanced subset should not be
+      used as the final latency/quality claim.
+    - Next MiniCPM step: run a larger balanced smoke or full validation before
+      making any quality/latency claim.
 
 ## Commit Hygiene
 
