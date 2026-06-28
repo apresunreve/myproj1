@@ -50,6 +50,11 @@ DEFAULT_LORA_TARGET_MODULES = [
     "down_proj",
 ]
 
+GEMMA4_LORA_TARGET_MODULES = (
+    r".*language_model\.layers\.\d+\."
+    r"(self_attn\.(q_proj|k_proj|v_proj|o_proj)|mlp\.(gate_proj|up_proj|down_proj))"
+)
+
 QWEN_MLA_LORA_TARGET_MODULES = [
     "q_proj",
     "o_proj",
@@ -524,6 +529,10 @@ def _is_llava_onevision_15_model(model_id: str) -> bool:
 
 def _is_mobilevlm_model(model_id: str) -> bool:
     return model_id.startswith("mtgv/MobileVLM")
+
+
+def _is_gemma4_model(model_id: str) -> bool:
+    return model_id.startswith("google/gemma-4-")
 
 
 def _validate_attention_experiment(model_id: str, attention_experiment: str | None) -> None:
@@ -1091,6 +1100,8 @@ def create_training_model(config: AppConfig):
         target_modules = INTERNVL_LORA_TARGET_MODULES
     elif _is_qwen_vl_model(config.model.base_model_id) and config.model.attention_experiment == "mla":
         target_modules = QWEN_MLA_LORA_TARGET_MODULES
+    elif _is_gemma4_model(config.model.base_model_id):
+        target_modules = GEMMA4_LORA_TARGET_MODULES
     else:
         target_modules = DEFAULT_LORA_TARGET_MODULES
     lora_config = LoraConfig(

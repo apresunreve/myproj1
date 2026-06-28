@@ -885,6 +885,17 @@
       Gemma4 is a strong architecture-native efficiency target, but it likely
       needs prompt tuning, LoRA, or a dataset-specific adapter before its
       adaptive-budget results are paper-quality.
+    - Added Gemma4-E2B LoRA training configs and launchers for BaboonLand and
+      KABR.
+      - Local one-sample BaboonLand LoRA smoke passed on this node with
+        `max_frames_per_clip=1`.
+      - Smoke output:
+        `artifacts/smoke/baboonland/gemma4_e2b_behavior_lora/checkpoint`.
+      - Smoke training metrics: train loss `0.3893`, trainable parameters
+        `24,158,208`, total parameters `5,128,455,712`.
+      - Slurm array submitted on `granite-gpu`: job `1548549`, tasks
+        `1548549_1` KABR Gemma4-E2B full LoRA and `1548549_2` BaboonLand
+        Gemma4-E2B full LoRA.
   - [x] MiniCPM-V 4.6
     - Added `scripts/inspect_minicpm_visual_tokens.py`.
     - Added `scripts/eval_minicpm_visual_token_prune_smoke.py`.
