@@ -853,6 +853,38 @@
     generation latency.
 - [ ] Port stable hooks to:
   - [ ] LLaVA-OneVision
+  - [x] Gemma4-E2B-it
+    - Added `scripts/eval_gemma4_soft_token_budget.py`.
+    - Added `scripts/analyze_gemma4_budget_cascade.py`.
+    - Verified `google/gemma-4-E2B-it` loads in `.venv_minicpm_smoke` with
+      `transformers 5.10.0.dev0` and runs on the local L4 GPU at about
+      `9.52 GB` allocated in BF16.
+    - One-row 4-frame BaboonLand smoke confirmed Gemma4's native
+      `max_soft_tokens` knob scales prompt/image tokens and latency:
+      budget `70`: `344` prompt tokens, `252` image tokens, median
+      generation latency `195.48 ms`; budget `140`: `612` prompt tokens,
+      `520` image tokens, `296.12 ms`; budget `280`: `1156` prompt tokens,
+      `1064` image tokens, `558.90 ms`.
+    - Balanced BaboonLand 5-per-class, 4-frame zero-shot budget smoke passed:
+      `artifacts/smoke_eval/visual_tokens/gemma4_e2b_baboonland_soft_budget_balanced5pc_4frames.jsonl`.
+      Budget `70`: accuracy `0.1290`, macro F1 `0.0790`, parsed rate
+      `0.9839`, median generation latency `195.98 ms`, mean image tokens
+      `248.95`.
+      Budget `140`: accuracy `0.1129`, macro F1 `0.0525`, parsed rate
+      `0.9516`, median generation latency `295.77 ms`, mean image tokens
+      `513.71`.
+      Budget `280`: accuracy `0.2419`, macro F1 `0.1882`, parsed rate
+      `0.9677`, median generation latency `567.01 ms`, mean image tokens
+      `1051.13`.
+    - Initial entropy-gated cascade analysis accounts for cumulative rerun
+      cost. Two-stage `70 -> 140` cascades reduce mean generation latency by
+      `39.2%` to `54.5%` versus always using budget `280`; three-stage
+      `70 -> 140 -> 280` cascades reduce it by `2.3%` to `50.6%`, depending
+      on escalation thresholds. Zero-shot accuracy remains well below trained
+      Qwen/MiniCPM baselines on this balanced hard subset. Interpretation:
+      Gemma4 is a strong architecture-native efficiency target, but it likely
+      needs prompt tuning, LoRA, or a dataset-specific adapter before its
+      adaptive-budget results are paper-quality.
   - [x] MiniCPM-V 4.6
     - Added `scripts/inspect_minicpm_visual_tokens.py`.
     - Added `scripts/eval_minicpm_visual_token_prune_smoke.py`.
