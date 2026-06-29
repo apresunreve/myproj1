@@ -162,6 +162,7 @@ These outputs are generated artifacts and should not be committed.
 | LLaVA-OV-Qwen2-7B KABR LoRA | 3981 | 1.0000 | 0.8631 | 0.5231 | `artifacts/runs/llava_onevision_qwen2_7b_behavior_lora_full/behavior_val_predictions.metrics.json` |
 | MiniCPM-V 4.6 joint LoRA | 3981 | 1.0000 | 0.8644 | 0.5042 | `artifacts/full_eval/minicpm_v46/minicpm_v46_joint_lora_on_kabr_full.jsonl.metrics.json` |
 | Qwen2.5-VL-7B KABR LoRA | 3981 | 1.0000 | 0.8475 | 0.5034 | `artifacts/runs/qwen25vl7b_behavior_lora_full/behavior_val_predictions.metrics.json` |
+| Gemma4-E2B KABR LoRA | 3981 | 1.0000 | 0.8392 | 0.4862 | `artifacts/eval/gemma4_e2b_lora_full/kabr_behavior_val_predictions.jsonl.metrics.json` |
 | LLaVA-OV-Qwen2-0.5B KABR LoRA | 3981 | 1.0000 | 0.8189 | 0.4468 | `artifacts/runs/llava_onevision_qwen2_0_5b_behavior_lora_full/behavior_val_predictions.metrics.json` |
 | MobileVLM-v2-1.7B KABR LoRA | 3981 | 1.0000 | 0.7822 | 0.4307 | `artifacts/runs/mobilevlm_v2_1_7b_behavior_lora_full/behavior_val_predictions.metrics.json` |
 | LLaVA-OneVision-1.5-4B KABR LoRA | 3981 | 0.0000 | 0.0000 | 0.0000 | `artifacts/runs/llava_onevision_1_5_4b_behavior_lora_full/behavior_val_predictions.metrics.json` |
@@ -179,9 +180,15 @@ should not be treated as a model-quality result without rerunning.
 | MiniCPM-V 4.6 joint LoRA | 6198 | 1.0000 | 0.7643 | 0.3948 | `artifacts/full_eval/minicpm_v46/minicpm_v46_joint_lora_on_baboonland_full.jsonl.metrics.json` |
 | Gemma3-4B BaboonLand LoRA | 6198 | 1.0000 | 0.7556 | 0.4048 | `artifacts/baboonland_eval/gemma3_4b_baboonland_lora.jsonl.metrics.json` |
 | Qwen2.5-VL-3B BaboonLand B2 invsqrt | 6198 | 1.0000 | 0.7519 | 0.3743 | `artifacts/baboonland_eval/qwen25vl3b_bbl_lora_b2_invsqrt.jsonl.metrics.json` |
+| Gemma4-E2B BaboonLand LoRA | 6198 | 1.0000 | 0.7354 | 0.3273 | `artifacts/eval/gemma4_e2b_lora_full/baboonland_behavior_val_predictions.jsonl.metrics.json` |
 | Qwen2.5-VL-3B BaboonLand B3 focal | 6198 | 1.0000 | 0.7152 | 0.3016 | `artifacts/baboonland_eval/qwen25vl3b_bbl_lora_b3_focal.jsonl.metrics.json` |
 | MobileVLM-v2-1.7B BaboonLand LoRA | 6198 | 1.0000 | 0.7115 | 0.3037 | `artifacts/baboonland_eval/mobilevlm_v2_1_7b_baboonland_lora.metrics.json` |
 | Qwen2.5-VL-3B BaboonLand B4 sampler | 6198 | 1.0000 | 0.6162 | 0.3486 | `artifacts/baboonland_eval/qwen25vl3b_bbl_lora_b4_sampler.jsonl.metrics.json` |
+
+Gemma4-E2B was trained and evaluated with a 4-frame setup. Full validation
+latency on this node was `705.3 ms` median / `839.75 ms` p90 for KABR and
+`773.1 ms` median / `884.75 ms` p90 for BaboonLand, with about `10.2 GB` peak
+GPU memory.
 
 ## Compact Latency Baselines
 

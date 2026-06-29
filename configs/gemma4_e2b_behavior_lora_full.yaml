@@ -2,7 +2,7 @@ project_name: kabr-gemma4-e2b-behavior-lora-full
 seed: 42
 
 data:
-  train_file: data/processed/kabr_behavior_train.jsonl
+  train_file: data/processed/kabr_behavior_train_kabr_files2.jsonl
   val_file: data/processed/kabr_behavior_val_cleaned.jsonl
   video_root:
   task_mode: action_recognition

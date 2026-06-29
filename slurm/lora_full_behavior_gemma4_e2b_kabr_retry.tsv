@@ -1,0 +1,2 @@
+job_name	launcher_script	resource_tier	skip_if_metrics_exists
+gemma4_e2b_behavior_lora_full	/scratch/general/vast/j.yan/myproj1/scripts/run_gemma4_e2b_behavior_lora_full.sh	medium	/scratch/general/vast/j.yan/myproj1/artifacts/runs/gemma4_e2b_behavior_lora_full/checkpoint/training_metrics.json

@@ -40,6 +40,18 @@
 - [x] Run one-clip Qwen label-likelihood smoke test.
 - [x] Run balanced 40-clip Qwen label-likelihood vs generation comparison.
 - [x] Commit and push current docs, configs, scripts, and eval loader changes.
+- [x] Add Gemma4 E2B LoRA training support.
+  - [x] Add Gemma4-safe LoRA target module regex so PEFT does not attach to
+    unsupported vision `Gemma4ClippableLinear` modules.
+  - [x] Add Gemma4 KABR and BaboonLand full training configs and launchers.
+  - [x] Add Slurm manifests for Gemma4 full training and retry jobs.
+- [x] Run Gemma4 E2B LoRA smoke training on this node.
+- [x] Run Gemma4 E2B full LoRA training:
+  - [x] KABR full LoRA completed on Slurm job `1548607_1`.
+  - [x] BaboonLand full LoRA completed on Slurm job `1548641_1`.
+- [x] Run Gemma4 E2B full validation on this GPU node.
+  - [x] KABR adapter on KABR.
+  - [x] BaboonLand adapter on BaboonLand.
 
 ## Current Baseline Results
 
@@ -59,6 +71,22 @@
   - Accuracy: `0.7643`
   - Macro F1: `0.3948`
   - Parsed rate: `1.0000`
+- [x] Gemma4 E2B KABR LoRA:
+  - Accuracy: `0.8392`
+  - Macro F1: `0.4862`
+  - Parsed rate: `1.0000`
+  - Median latency: `705.3 ms`
+  - P90 latency: `839.75 ms`
+  - Metrics:
+    `artifacts/eval/gemma4_e2b_lora_full/kabr_behavior_val_predictions.jsonl.metrics.json`
+- [x] Gemma4 E2B BaboonLand LoRA:
+  - Accuracy: `0.7354`
+  - Macro F1: `0.3273`
+  - Parsed rate: `1.0000`
+  - Median latency: `773.1 ms`
+  - P90 latency: `884.75 ms`
+  - Metrics:
+    `artifacts/eval/gemma4_e2b_lora_full/baboonland_behavior_val_predictions.jsonl.metrics.json`
 
 ## Next Action Items
 
@@ -80,6 +108,10 @@
   - [ ] MiniCPM full evals
   - [ ] Qwen full evals
   - [ ] LLaVA full evals
+- [ ] Decide whether Gemma4 E2B belongs in the main baseline table or in a
+  broader-model-support appendix.
+- [ ] If Gemma4 is included as a main baseline, run a comparable 8-frame eval
+  or explicitly label the current row as the 4-frame setup used for training.
 
 ## Label-Likelihood Prototype
 
