@@ -52,6 +52,14 @@
 - [x] Run Gemma4 E2B full validation on this GPU node.
   - [x] KABR adapter on KABR.
   - [x] BaboonLand adapter on BaboonLand.
+- [x] Inspect Gemma4 visual-token path in Transformers.
+  - [x] Confirm native `max_soft_tokens` budgets: `70, 140, 280, 560, 1120`.
+  - [x] Confirm visual features are inserted by `masked_scatter` into
+    `<image_soft_token>` slots after `embed_vision`.
+- [x] Add and run Gemma4 LoRA visual-budget compact sweep.
+  - [x] KABR frames `1, 2, 4` with budgets `70, 140, 280`.
+  - [x] BaboonLand frames `1, 2, 4` with budgets `70, 140, 280`.
+  - [x] Document results in `GEMMA4_BUDGET_SWEEP_SUMMARY.md`.
 
 ## Current Baseline Results
 
@@ -112,6 +120,10 @@
   broader-model-support appendix.
 - [ ] If Gemma4 is included as a main baseline, run a comparable 8-frame eval
   or explicitly label the current row as the 4-frame setup used for training.
+- [ ] Run larger Gemma4 KABR routing validation for cheap `2f/280` with full
+  `4f/280` Gemma4 fallback.
+- [ ] Test Gemma4 cheap-pass plus MiniCPM fallback on BaboonLand, because
+  full-Gemma4 fallback load was high in the compact sweep.
 
 ## Label-Likelihood Prototype
 

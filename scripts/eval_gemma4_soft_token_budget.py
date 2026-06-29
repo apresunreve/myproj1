@@ -31,6 +31,8 @@ from eval_qwen_random_visual_token_drop_smoke import (  # noqa: E402
 )
 from kabr_vlm.vlm_baselines import match_candidate  # noqa: E402
 
+KABR_CLASSES = ["Walk", "Graze", "Browse", "Head Up", "Auto-Groom", "Trot", "Run", "Occluded"]
+
 
 def parse_budgets(value: str) -> list[int]:
     budgets = [int(item.strip()) for item in value.split(",") if item.strip()]
@@ -104,6 +106,14 @@ def summarize_token_scores(processor, token_ids: list[int], score_steps: tuple[A
 
 def mean_or_none(values: list[float]) -> float | None:
     return sum(values) / len(values) if values else None
+
+
+def labels_for_dataset(target_dataset: str) -> list[str]:
+    if target_dataset == "kabr":
+        return KABR_CLASSES
+    if target_dataset == "baboonland":
+        return BABOONLAND_CLASSES
+    raise ValueError(f"Unsupported target dataset: {target_dataset}")
 
 
 def render_prompt(processor, image_paths: list[str], prompt: str) -> str:
@@ -227,7 +237,9 @@ def summarize(records: list[dict[str, Any]], labels: list[str]) -> dict[str, Any
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--val-jsonl", required=True)
+    parser.add_argument("--target-dataset", choices=["kabr", "baboonland"], default="baboonland")
     parser.add_argument("--model-id", default="google/gemma-4-E2B-it")
+    parser.add_argument("--adapter-path", default=None)
     parser.add_argument("--max-rows", type=int, default=1)
     parser.add_argument("--samples-per-class", type=int, default=0)
     parser.add_argument("--max-input-frames", type=int, default=4)
@@ -237,10 +249,12 @@ def main() -> None:
     parser.add_argument("--dtype", choices=["bfloat16", "float16", "float32"], default="bfloat16")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--output-jsonl", required=True)
+    parser.add_argument("--summary-json", default=None)
     args = parser.parse_args()
 
     import torch
     from transformers import AutoModelForImageTextToText, AutoProcessor
+    from peft import PeftModel
 
     dtype = {
         "bfloat16": torch.bfloat16,
@@ -248,8 +262,9 @@ def main() -> None:
         "float32": torch.float32,
     }[args.dtype]
     budgets = parse_budgets(args.soft_token_budgets)
+    labels = labels_for_dataset(args.target_dataset)
     if args.samples_per_class > 0:
-        rows = load_balanced_rows(Path(args.val_jsonl), args.samples_per_class, BABOONLAND_CLASSES)
+        rows = load_balanced_rows(Path(args.val_jsonl), args.samples_per_class, labels)
     else:
         rows = load_rows(Path(args.val_jsonl), args.max_rows)
 
@@ -259,6 +274,8 @@ def main() -> None:
         dtype=dtype,
         low_cpu_mem_usage=True,
     ).to(args.device)
+    if args.adapter_path:
+        model = PeftModel.from_pretrained(model, args.adapter_path)
     model.eval()
 
     if rows and args.warmup_budget > 0:
@@ -290,7 +307,7 @@ def main() -> None:
                     max_new_tokens=args.max_new_tokens,
                     device=args.device,
                 )
-                pred_label = match_candidate(generated["generated_text"], BABOONLAND_CLASSES)
+                pred_label = match_candidate(generated["generated_text"], labels)
                 record = {
                     "id": row["id"],
                     "row_index": row_index,
@@ -306,7 +323,16 @@ def main() -> None:
                 handle.write(json.dumps(record) + "\n")
                 handle.flush()
 
-    print(json.dumps(summarize(records, BABOONLAND_CLASSES), indent=2))
+    summary = summarize(records, labels)
+    summary["target_dataset"] = args.target_dataset
+    summary["model_id"] = args.model_id
+    summary["adapter_path"] = args.adapter_path
+    summary["max_input_frames"] = args.max_input_frames
+    summary["soft_token_budgets"] = budgets
+    summary_path = Path(args.summary_json) if args.summary_json else Path(str(output_path) + ".summary.json")
+    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    print(json.dumps(summary, indent=2))
+    print(f"wrote summary: {summary_path}", flush=True)
 
 
 if __name__ == "__main__":
